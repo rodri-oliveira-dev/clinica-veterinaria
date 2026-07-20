@@ -112,6 +112,8 @@ O SDD 16 adiciona os casos de uso e contratos HTTP de Tutores no mesmo assembly 
 
 O SDD 17 introduz o modelo de dominio inicial de `Animal`, ainda sem persistencia, endpoints, repository, consulta direta a `Tutor`, vinculos completos ou eventos de integracao.
 
+O SDD 18 persiste `Animal` em PostgreSQL no mesmo modulo e cria o vinculo inicial com `Tutor` por `TutorResponsavel`.
+
 ## Invariantes conhecidas
 
 - Tutor, animal e vinculo sempre pertencem a exatamente um tenant autenticado.
@@ -202,6 +204,39 @@ Privacidade:
 - A API de Tutores retorna CPF somente como `cpfMascarado`; pesquisa por CPF aceita valor formatado ou normalizado, mas nao devolve o documento completo.
 - Listagens minimizam dados e retornam somente `tutorId`, `nome`, `cpfMascarado` e `situacao`.
 - Ainda nao foram definidos retencao, exportacao, eliminacao, bloqueio ou fluxos de direitos do titular, pois nao ha API publica para esses processos nesta fatia.
+
+## Persistencia inicial de Animal
+
+O SDD 18 introduz a tabela funcional `animais`, owned pelo mesmo modulo Cadastro de Tutores e Animais.
+
+Colunas:
+
+- `id`;
+- `tenant_id NOT NULL`;
+- `nome`;
+- `especie`;
+- `raca`;
+- `sexo`;
+- `data_de_nascimento`;
+- `cor_ou_pelagem`;
+- `observacao_cadastral`;
+- `situacao`;
+- `tutor_responsavel_id`;
+- `criado_em`;
+- `atualizado_em`;
+- `inativado_em`.
+
+Decisoes:
+
+- `Animal` permanece no mesmo Bounded Context e no mesmo ownership de `Tutor`, conforme ADR-0003.
+- O vinculo inicial usa referencia por identidade (`TutorResponsavel`) e e persistido em `tutor_responsavel_id`.
+- Foi adotada foreign key fisica composta de `animais (tenant_id, tutor_responsavel_id)` para `tutores (tenant_id, id)`, pois Tutor e Animal pertencem ao mesmo modulo owner nesta fase.
+- Essa FK composta impede associacao cross-tenant no banco. Um tutor de outro tenant nao satisfaz a constraint e, na Application, a consulta filtrada por tenant o trata como inexistente.
+- A tabela `tutores` recebeu a alternate key `(tenant_id, id)` apenas para suportar a FK composta; o ownership continua no mesmo modulo.
+- `AnimalId`, `TenantId`, `TutorId`, `NomeDoAnimal`, `Especie`, `Raca`, `DataDeNascimento`, `CorOuPelagem`, `ObservacaoCadastral`, `SexoDoAnimal` e `SituacaoDoAnimal` usam conversoes EF Core no mapeamento do modulo.
+- Consultas comuns usam query filter por tenant atual.
+- Escritas usam guarda de `SaveChanges` para exigir tenant resolvido e impedir alteracao de animal pertencente a outro tenant.
+- Nao foram criados endpoints de animais, transferencia de responsabilidade, cache, broker, duplicacao de dados completos do tutor nem contrato entre modulos.
 
 ## API de Tutor
 

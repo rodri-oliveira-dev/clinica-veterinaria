@@ -92,6 +92,8 @@ Essa implementacao nao cria entidade completa, tabela funcional, migration, repo
 
 No SDD 15, o aggregate `Tutor` passou a ser persistido em PostgreSQL pela tabela `tutores`, owned por este modulo. A estrategia inicial usa o `PetShopDbContext` tecnico da API como contexto de migrations do monolito e uma extensao publica de persistencia do modulo para aplicar o mapeamento EF Core. O isolamento multitenant combina `tenant_id NOT NULL`, indice unico `(tenant_id, documento)`, query filter parametrizado pelo tenant atual e guarda de `SaveChanges` contra escrita sem tenant resolvido ou com tenant divergente. Essa decisao nao cria endpoint funcional, repository generico, tabela de animais, eventos de integracao, RLS ou contexto de banco separado.
 
+No SDD 18, o aggregate `Animal` passou a ser persistido pela tabela `animais`, tambem owned por este modulo. Como Tutor e Animal permanecem no mesmo Bounded Context e no mesmo ownership, foi aceita uma foreign key fisica composta de `animais (tenant_id, tutor_responsavel_id)` para `tutores (tenant_id, id)`. A FK e deliberadamente composta com `tenant_id` para impedir vinculo cross-tenant no banco. Essa decisao nao cria contrato entre modulos, acesso a tabela de outro modulo, transferencia de responsabilidade, endpoint de animais, evento de integracao, broker ou cache.
+
 ## Relacao com codigo, testes e documentacao
 
 Esta ADR nao criou codigo de producao, migrations, endpoints ou testes quando foi aceita. O SDD 13 adicionou a fundacao de codigo e os testes arquiteturais da fronteira sem implementar funcionalidade de negocio.

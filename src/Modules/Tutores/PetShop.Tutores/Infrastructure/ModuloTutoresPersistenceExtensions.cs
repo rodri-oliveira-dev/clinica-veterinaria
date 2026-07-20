@@ -17,6 +17,7 @@ public static class ModuloTutoresPersistenceExtensions
         ArgumentNullException.ThrowIfNull(tenantIdAtual);
 
         modelBuilder.ApplyConfiguration(new TutorEntityTypeConfiguration(tenantIdAtual));
+        modelBuilder.ApplyConfiguration(new AnimalEntityTypeConfiguration(tenantIdAtual));
 
         return modelBuilder;
     }
@@ -27,12 +28,10 @@ public static class ModuloTutoresPersistenceExtensions
     {
         ArgumentNullException.ThrowIfNull(changeTracker);
 
-        EntityEntry<Tutor>[] alteracoes = changeTracker
-            .Entries<Tutor>()
-            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
-            .ToArray();
+        EntityEntry<Tutor>[] alteracoesDeTutores = ObterAlteracoes<Tutor>(changeTracker);
+        EntityEntry<Animal>[] alteracoesDeAnimais = ObterAlteracoes<Animal>(changeTracker);
 
-        if (alteracoes.Length == 0)
+        if (alteracoesDeTutores.Length == 0 && alteracoesDeAnimais.Length == 0)
         {
             return;
         }
@@ -40,10 +39,10 @@ public static class ModuloTutoresPersistenceExtensions
         if (!tenantIdAtual.HasValue)
         {
             throw new InvalidOperationException(
-                "O tenant autenticado deve estar resolvido antes de alterar tutores.");
+                "O tenant autenticado deve estar resolvido antes de alterar tutores ou animais.");
         }
 
-        foreach (EntityEntry<Tutor> alteracao in alteracoes)
+        foreach (EntityEntry<Tutor> alteracao in alteracoesDeTutores)
         {
             if (alteracao.Entity.TenantId.Valor != tenantIdAtual.Value)
             {
@@ -51,5 +50,21 @@ public static class ModuloTutoresPersistenceExtensions
                     "O tutor alterado deve pertencer ao tenant autenticado.");
             }
         }
+
+        foreach (EntityEntry<Animal> alteracao in alteracoesDeAnimais)
+        {
+            if (alteracao.Entity.TenantId.Valor != tenantIdAtual.Value)
+            {
+                throw new InvalidOperationException(
+                    "O animal alterado deve pertencer ao tenant autenticado.");
+            }
+        }
     }
+
+    private static EntityEntry<T>[] ObterAlteracoes<T>(ChangeTracker changeTracker)
+        where T : class =>
+        changeTracker
+            .Entries<T>()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .ToArray();
 }

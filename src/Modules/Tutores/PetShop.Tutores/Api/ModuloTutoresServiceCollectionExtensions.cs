@@ -22,7 +22,9 @@ public static class ModuloTutoresServiceCollectionExtensions
         services.AddScoped<IContextoTenantAtual>(provider =>
             new ContextoTenantAtualResolvido(obterTenantAtual(provider)));
         services.AddScoped<ITutoresRepository, TutoresRepository>();
+        services.AddScoped<IAnimaisRepository, AnimaisRepository>();
         services.AddScoped<TutoresApplicationService>();
+        services.AddScoped<AnimaisApplicationService>();
 
         return services;
     }

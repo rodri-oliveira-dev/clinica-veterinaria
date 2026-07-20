@@ -13,7 +13,7 @@ internal sealed class Animal : IEquatable<Animal>
         CorOuPelagem? corOuPelagem,
         ObservacaoCadastral? observacaoCadastral,
         SituacaoDoAnimal situacao,
-        TutorResponsavel tutorResponsavel,
+        TutorId tutorResponsavelId,
         DateTimeOffset criadoEm,
         DateTimeOffset atualizadoEm,
         DateTimeOffset? inativadoEm)
@@ -28,7 +28,7 @@ internal sealed class Animal : IEquatable<Animal>
         CorOuPelagem = corOuPelagem;
         ObservacaoCadastral = observacaoCadastral;
         Situacao = situacao;
-        TutorResponsavel = tutorResponsavel;
+        TutorResponsavelId = tutorResponsavelId;
         CriadoEm = criadoEm;
         AtualizadoEm = atualizadoEm;
         InativadoEm = inativadoEm;
@@ -54,7 +54,9 @@ internal sealed class Animal : IEquatable<Animal>
 
     public SituacaoDoAnimal Situacao { get; private set; }
 
-    public TutorResponsavel TutorResponsavel { get; }
+    public TutorResponsavel TutorResponsavel => TutorResponsavel.Criar(TutorResponsavelId.Valor);
+
+    internal TutorId TutorResponsavelId { get; }
 
     public DateTimeOffset CriadoEm { get; }
 
@@ -91,7 +93,7 @@ internal sealed class Animal : IEquatable<Animal>
             corOuPelagem,
             observacaoCadastral,
             SituacaoDoAnimal.Ativo,
-            tutorResponsavel,
+            TutorId.Criar(tutorResponsavel.TutorId),
             cadastradoEm,
             cadastradoEm,
             inativadoEm: null);

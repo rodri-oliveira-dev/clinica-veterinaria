@@ -27,7 +27,7 @@ tests/
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
-- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui o aggregate `Tutor` persistido em PostgreSQL e endpoints HTTP para cadastro, consulta, atualizacao, pesquisa e inativacao, alem do modelo de dominio inicial de `Animal` ainda sem persistencia ou API, sem repository generico.
+- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui o aggregate `Tutor` persistido em PostgreSQL e endpoints HTTP para cadastro, consulta, atualizacao, pesquisa e inativacao, alem do aggregate `Animal` persistido com vinculo a tutor no mesmo ownership. Ainda nao ha endpoint HTTP de animais, transferencia de responsabilidade ou repository generico.
 
 ## Decisoes preservadas
 
@@ -39,7 +39,7 @@ tests/
 - HTTP usa `X-Correlation-Id`.
 - `PetShop.Observability` nao depende de ASP.NET Core.
 - O AppHost e apenas composicao local; ele sobe PostgreSQL e Keycloak para desenvolvimento, incluindo realm e client locais, sem definir broker, cache ou gateway.
-- A primeira fatia de negocio documentada e `Cadastro de Tutores e Animais`, mantendo tutor, animal e vinculo no mesmo Bounded Context inicial e materializada inicialmente em um unico assembly de modulo. A tabela `tutores` pertence a esse modulo.
+- A primeira fatia de negocio documentada e `Cadastro de Tutores e Animais`, mantendo tutor, animal e vinculo no mesmo Bounded Context inicial e materializada inicialmente em um unico assembly de modulo. As tabelas `tutores` e `animais` pertencem a esse modulo.
 
 As decisoes completas estao em:
 
@@ -159,6 +159,9 @@ Tabela funcional introduzida:
 - `documento` armazena CPF normalizado quando informado.
 - A unicidade de CPF e local ao tenant pelo indice unico `(tenant_id, documento)`, permitindo o mesmo CPF em tenants diferentes.
 - Constraints no banco impedem `id` e `tenant_id` vazios, situacao fora do dominio conhecido, documento/telefone com tamanho invalido e tutor sem contato operacional.
+- `animais`: possui `id`, `tenant_id NOT NULL`, `nome`, `especie`, `raca`, `sexo`, `data_de_nascimento`, `cor_ou_pelagem`, `observacao_cadastral`, `situacao`, `tutor_responsavel_id`, `criado_em`, `atualizado_em` e `inativado_em`.
+- O vinculo de animal com tutor usa foreign key composta `(tenant_id, tutor_responsavel_id)` para `tutores (tenant_id, id)`, porque os dois aggregates pertencem ao mesmo modulo owner nesta fase.
+- Constraints no banco impedem `id`, `tenant_id` e `tutor_responsavel_id` vazios, textos obrigatorios em branco, sexo/situacao fora do dominio conhecido e vinculo com tutor inexistente ou de outro tenant.
 
 Estrategia multitenant da persistencia de tutores:
 
@@ -166,6 +169,14 @@ Estrategia multitenant da persistencia de tutores:
 - O `PetShopDbContext` aplica query filter parametrizado por contexto para `Tutor`; sem tenant resolvido, consultas comuns nao retornam tutores.
 - `SaveChanges` bloqueia inclusao, alteracao ou exclusao de tutores quando nao houver tenant resolvido ou quando o tenant da entidade divergir do tenant autenticado.
 - A estrategia combina filtro de leitura, guarda de escrita e constraints de banco. O trade-off e que o `PetShopDbContext` tecnico conhece a extensao de persistencia do modulo; em troca, a entidade `Tutor` permanece interna ao modulo e o Domain nao referencia EF Core.
+
+Estrategia multitenant da persistencia de animais:
+
+- O tenant continua vindo exclusivamente do `ITenantContext` resolvido da claim `tenant_id` autenticada.
+- O `PetShopDbContext` aplica query filter parametrizado por contexto para `Animal`; sem tenant resolvido, consultas comuns nao retornam animais.
+- `SaveChanges` bloqueia inclusao, alteracao ou exclusao de animais quando nao houver tenant resolvido ou quando o tenant da entidade divergir do tenant autenticado.
+- A Application valida o tutor responsavel por consulta filtrada no tenant atual; tutor de outro tenant se comporta como inexistente.
+- A FK composta no banco protege o mesmo limite caso uma escrita tente associar animal a tutor inexistente ou de outro tenant.
 
 Comandos de migrations:
 
@@ -461,7 +472,7 @@ Cobertura e usada como sinal de risco. Nao ha threshold artificial nesta entrega
 ## Escopo ainda nao implementado
 
 - Endpoints funcionais de animais e vinculos, ja documentados em `docs/domain/tutores-e-animais.md`.
-- Persistencia de animais e vinculos.
+- Transferencia de responsabilidade do animal.
 - Row-Level Security.
 - Outros modulos de negocio como agenda, atendimento ou cobranca.
 - Broker, Redis, API Gateway, microsservicos ou multiplos bancos.

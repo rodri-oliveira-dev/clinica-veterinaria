@@ -33,8 +33,9 @@ public sealed class PersistenceMigrationsTests : IClassFixture<PostgreSqlFixture
         Assert.Empty(pendingMigrations);
         string[] migrationNames = appliedMigrations.ToArray();
 
-        Assert.Equal(2, migrationNames.Length);
+        Assert.Equal(3, migrationNames.Length);
         Assert.Contains(migrationNames, migration => migration.Contains("InitialPersistenceFoundation", StringComparison.Ordinal));
         Assert.Contains(migrationNames, migration => migration.Contains("AddTutoresPersistence", StringComparison.Ordinal));
+        Assert.Contains(migrationNames, migration => migration.Contains("AddAnimaisPersistence", StringComparison.Ordinal));
     }
 }

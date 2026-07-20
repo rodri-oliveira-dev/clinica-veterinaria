@@ -4,7 +4,7 @@
 
 Registrar a linguagem ubiqua, as responsabilidades e a fronteira inicial da primeira fatia de negocio da plataforma: cadastro e manutencao de tutores, animais e seus vinculos dentro de uma clinica veterinaria.
 
-Este documento orienta a Entrega 1. Ele nao define entidades, tabelas, endpoints, contratos HTTP ou estrutura fisica de projetos.
+Este documento orienta e consolida a Entrega 1. As primeiras secoes registram linguagem e fronteira; as secoes posteriores documentam as entidades, tabelas, endpoints, contratos HTTP e decisoes fisicas efetivamente introduzidas pelos SDDs 13 a 20.
 
 ## Decisao de fronteira
 
@@ -374,12 +374,12 @@ flowchart LR
 
 ## Decisoes adiadas
 
-- Se `Responsavel principal` sera necessario na Entrega 1.
-- Se `Situacao` sera modelada como estado explicito ou derivada de regras simples.
-- Quais campos de tutor, contato e animal serao obrigatorios nos contratos HTTP.
-- Quais regras de unicidade local ao tenant serao exigidas.
-- Se a persistencia futura de animais e vinculos continuara no `PetShopDbContext` tecnico ou exigira um `DbContext` especifico do modulo.
+- Se `Responsavel principal` sera necessario em uma entrega futura.
+- Se surgirao contatos adicionais alem de e-mail e telefone.
+- Se a persistencia futura de novos vinculos continuara no `PetShopDbContext` tecnico ou exigira um `DbContext` especifico do modulo.
 - Se outros modulos precisarao de contratos de leitura ou projecoes locais sobre tutores e animais.
+- Como otimizar busca textual e ordenacao sobre Value Objects em alto volume sem vazar entidades de persistencia nem criar shared model.
+- Quais fluxos de retencao, exportacao, bloqueio, eliminacao ou direitos do titular serao implementados para dados pessoais de tutores.
 
 ## Criterios para revisao da fronteira
 

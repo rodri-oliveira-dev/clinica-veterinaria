@@ -51,6 +51,7 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.True(responses.TryGetProperty("500", out _));
 
         JsonElement paths = root.GetProperty("paths");
+        AssertOpenApiDoesNotExposeTenantInput(root);
         Assert.True(paths.GetProperty("/tutores").TryGetProperty("post", out JsonElement cadastrarTutor));
         Assert.True(paths.GetProperty("/tutores").TryGetProperty("get", out JsonElement pesquisarTutores));
         Assert.True(paths.GetProperty("/tutores/{tutorId}").TryGetProperty("get", out JsonElement consultarTutor));
@@ -97,6 +98,35 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.True(responses.TryGetProperty("401", out _));
         Assert.True(responses.TryGetProperty("403", out _));
         Assert.True(responses.TryGetProperty("500", out _));
+    }
+
+    private static void AssertOpenApiDoesNotExposeTenantInput(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (JsonProperty property in element.EnumerateObject())
+                {
+                    Assert.NotEqual("tenantId", property.Name);
+                    Assert.NotEqual("tenant_id", property.Name);
+                    if (property.NameEquals("name") && property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        Assert.NotEqual("tenantId", property.Value.GetString());
+                        Assert.NotEqual("tenant_id", property.Value.GetString());
+                    }
+
+                    AssertOpenApiDoesNotExposeTenantInput(property.Value);
+                }
+
+                break;
+            case JsonValueKind.Array:
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    AssertOpenApiDoesNotExposeTenantInput(item);
+                }
+
+                break;
+        }
     }
 
     public void Dispose()

@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -31,7 +30,7 @@ public sealed class ApiDiagnosticsTests : IClassFixture<PostgreSqlFixture>, IDis
     }
 
     [Fact]
-    public async Task Diagnostics_ReturnsCurrentCorrelationId()
+    public async Task Diagnostics_WithoutToken_ReturnsUnauthorizedAndCorrelationHeader()
     {
         const string correlationId = "f2b935f0-b443-4c8d-8cdb-379e66c4c3f5";
         using HttpClient client = _factory.CreateClient();
@@ -40,21 +39,13 @@ public sealed class ApiDiagnosticsTests : IClassFixture<PostgreSqlFixture>, IDis
 
         using HttpResponseMessage response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        DiagnosticsResponse? body = await response.Content.ReadFromJsonAsync<DiagnosticsResponse>(
-            cancellationToken: TestContext.Current.CancellationToken);
-        Assert.NotNull(body);
-        Assert.Equal("PetShop.Api", body.Service);
-        Assert.Equal(correlationId, body.CorrelationId);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.True(response.Headers.TryGetValues(PropagationHeaderNames.HttpCorrelationId, out IEnumerable<string>? values));
+        Assert.Equal(correlationId, values.Single());
     }
 
     public void Dispose()
     {
         _factory.Dispose();
     }
-
-    private sealed record DiagnosticsResponse(
-        string Service,
-        string Environment,
-        string? CorrelationId);
 }

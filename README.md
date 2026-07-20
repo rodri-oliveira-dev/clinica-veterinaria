@@ -2,7 +2,7 @@
 
 Backend inicial de uma plataforma SaaS multitenant para clinicas veterinarias, petshops e servicos para pets.
 
-O projeto nasce como um monolito modular em .NET 10 com um unico deploy. A entrega atual cria a fundacao tecnica minima: API HTTP, AppHost Aspire para composicao local com PostgreSQL e Keycloak, EF Core com provider PostgreSQL, building blocks de observabilidade e testes de baseline. Modulos de negocio, autenticacao JWT e multitenancy tecnico serao adicionados apenas quando houver uma fatia funcional concreta.
+O projeto nasce como um monolito modular em .NET 10 com um unico deploy. A entrega atual cria a fundacao tecnica minima: API HTTP protegida por JWT Bearer do Keycloak, AppHost Aspire para composicao local com PostgreSQL e Keycloak, EF Core com provider PostgreSQL, building blocks de observabilidade e testes de baseline. Modulos de negocio e multitenancy tecnico serao adicionados apenas quando houver uma fatia funcional concreta.
 
 ## Estrutura
 
@@ -22,7 +22,7 @@ tests/
 
 ## Projetos
 
-- `PetShop.Api`: ASP.NET Core API com endpoints minimos `/health` e `/diagnostics`, `PetShopDbContext` tecnico minimo e health check de PostgreSQL.
+- `PetShop.Api`: ASP.NET Core API com endpoint publico `/health`, endpoint protegido `/diagnostics`, `PetShopDbContext` tecnico minimo e health check de PostgreSQL.
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
@@ -35,7 +35,7 @@ tests/
 - `CorrelationId` e independente de `TraceId`.
 - HTTP usa `X-Correlation-Id`.
 - `PetShop.Observability` nao depende de ASP.NET Core.
-- O AppHost e apenas composicao local; ele sobe PostgreSQL e Keycloak para desenvolvimento, incluindo realm e client locais, mas nao integra JWT na API nem define broker, cache ou gateway.
+- O AppHost e apenas composicao local; ele sobe PostgreSQL e Keycloak para desenvolvimento, incluindo realm e client locais, sem definir broker, cache ou gateway.
 
 As decisoes completas estao em:
 
@@ -63,6 +63,16 @@ Para executar a API diretamente, informe a connection string convencional `Conne
 ConnectionStrings__petshop="Host=localhost;Port=5432;Database=petshop;Username=petshop;Password=<senha>"
 dotnet run --project ./src/Apps/PetShop.Api/PetShop.Api.csproj
 ```
+
+Em `Development`, a API usa a configuracao local versionada de JWT:
+
+- `Authentication:Authority`: `http://localhost:8080/realms/petshop-local`;
+- `Authentication:Audience`: `petshop-api`;
+- `Authentication:RoleClientId`: `petshop-api`;
+- `Authentication:RequiredRole`: `petshop.access`;
+- `Authentication:RequireHttpsMetadata`: `false`.
+
+Fora de `Development`, configure esses valores pelo ambiente ou secret store do runtime. Em producao, a autoridade deve usar HTTPS e a validacao de issuer, audience, assinatura e lifetime permanece habilitada.
 
 Para executar a composicao local Aspire:
 
@@ -164,6 +174,16 @@ Para inspecionar as claims sem colar o token em servicos externos, decodifique l
 - `resource_access.petshop-api.roles` contendo `petshop.access`;
 - `tenant_id` igual a `11111111-1111-4111-8111-111111111111`.
 
+A API valida tokens Bearer emitidos pelo realm local, exige audience `petshop-api`, lifetime valido, assinatura via metadata/JWKS do Keycloak e a policy explicita `PetShop.DiagnosticsAccess` para o endpoint `/diagnostics`. Essa policy exige usuario autenticado, claim `tenant_id` presente e client role `petshop.access` em `resource_access.petshop-api.roles`. O endpoint nao retorna token nem dump de claims.
+
+Smoke test local, depois que a API e o Keycloak estiverem rodando:
+
+```powershell
+./scripts/smoke-keycloak-auth.ps1 -ApiBaseUrl "http://localhost:5000"
+```
+
+Se a API estiver em outra URL, informe o endereco exibido pelo AppHost em `-ApiBaseUrl`. O smoke test valida `401` sem token e `200` com um access token local autorizado.
+
 Volumes persistentes:
 
 - PostgreSQL usa volume Docker gerenciado pelo Aspire para preservar dados do servidor local.
@@ -186,7 +206,6 @@ Separacao local/producao:
 
 ## Escopo ainda nao implementado
 
-- Autenticacao JWT e autorizacao na API.
 - Implementacao tecnica de multitenancy.
 - Query filters, interceptors de tenant e Row-Level Security.
 - OpenTelemetry completo com exporter OTLP.

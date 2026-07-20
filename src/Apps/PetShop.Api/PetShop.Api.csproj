@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\BuildingBlocks\PetShop.Observability\PetShop.Observability.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\PetShop.Observability.AspNetCore\PetShop.Observability.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\Modules\Tutores\PetShop.Tutores\PetShop.Tutores.csproj" />
   </ItemGroup>
 
   <ItemGroup>

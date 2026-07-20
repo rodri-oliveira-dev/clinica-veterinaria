@@ -3,6 +3,9 @@
     <Project Path="src/AppHost/PetShop.AppHost/PetShop.AppHost.csproj" />
     <Project Path="src/Apps/PetShop.Api/PetShop.Api.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Tutores/">
+    <Project Path="src/Modules/Tutores/PetShop.Tutores/PetShop.Tutores.csproj" />
+  </Folder>
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/PetShop.Observability.AspNetCore/PetShop.Observability.AspNetCore.csproj" />
     <Project Path="src/BuildingBlocks/PetShop.Observability/PetShop.Observability.csproj" />

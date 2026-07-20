@@ -71,7 +71,6 @@ Rejeitada. A fronteira nao deve virar um deposito generico de cadastros. Ela cob
 
 ## Decisoes ainda pendentes
 
-- Estrutura fisica inicial do modulo quando a Entrega 1 for implementada.
 - Contratos HTTP, requests e responses.
 - Entidades, aggregates, Value Objects e invariantes detalhadas.
 - Modelo de persistencia, migrations e constraints.
@@ -79,9 +78,21 @@ Rejeitada. A fronteira nao deve virar um deposito generico de cadastros. Ela cob
 - Necessidade de `Responsavel principal` ou `Situacao` como conceitos explicitos.
 - Contratos futuros para agenda, atendimento, faturamento ou notificacoes.
 
+## Desdobramento de implementacao
+
+No SDD 13, a fundacao tecnica inicial foi materializada como um unico assembly de modulo:
+
+```text
+src/Modules/Tutores/PetShop.Tutores/
+```
+
+O assembly representa a capacidade Cadastro de Tutores e Animais, com pastas conceituais `Domain`, `Application`, `Infrastructure` e `Api`. A superficie publica fica limitada aos pontos de composicao `AddModuloTutores` e `MapModuloTutores`, usados pela API do monolito.
+
+Essa implementacao nao cria entidade completa, tabela funcional, migration, repository, contrato HTTP de caso de uso, endpoint funcional ou evento de integracao. As proximas decisoes de persistencia, contratos e invariantes continuam pendentes.
+
 ## Relacao com codigo, testes e documentacao
 
-Esta ADR nao cria codigo de producao, migrations, endpoints ou testes.
+Esta ADR nao criou codigo de producao, migrations, endpoints ou testes quando foi aceita. O SDD 13 adicionou a fundacao de codigo e os testes arquiteturais da fronteira sem implementar funcionalidade de negocio.
 
 Documentacao relacionada:
 

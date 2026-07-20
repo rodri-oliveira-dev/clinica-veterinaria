@@ -96,6 +96,18 @@ Quando esses dados forem persistidos, todas as tabelas funcionais devem possuir 
 
 Outros modulos nao devem consultar diretamente tabelas, entidades EF Core, `DbContext` ou repositories desse modulo. Necessidades futuras de agenda, atendimento, faturamento ou notificacao devem usar contratos deliberados, projecoes locais ou workflows definidos quando a funcionalidade existir.
 
+## Fundacao tecnica inicial
+
+O SDD 13 materializa a fronteira como um unico assembly de modulo:
+
+```text
+src/Modules/Tutores/PetShop.Tutores/
+```
+
+Essa fundacao usa pastas conceituais `Domain`, `Application`, `Infrastructure` e `Api`, mas preserva superficie publica minima. A API carrega o modulo somente pelos pontos de composicao `AddModuloTutores` e `MapModuloTutores`.
+
+Ainda nao existem entidades completas, tabelas funcionais, migrations, repositories, contratos HTTP de caso de uso, endpoints funcionais ou eventos de integracao. Quando houver persistencia, os dados de tutores, contatos, animais e vinculos devem continuar tenant-owned conforme a ADR-0001.
+
 ## Invariantes conhecidas
 
 - Tutor, animal e vinculo sempre pertencem a exatamente um tenant autenticado.
@@ -157,9 +169,7 @@ flowchart LR
 - Se `Situacao` sera modelada como estado explicito ou derivada de regras simples.
 - Quais campos de tutor, contato e animal serao obrigatorios nos contratos HTTP.
 - Quais regras de unicidade local ao tenant serao exigidas.
-- Qual sera a estrutura fisica inicial do modulo em projetos, pastas e namespaces.
 - Se a persistencia usara um `DbContext` especifico do modulo ou o `PetShopDbContext` tecnico existente evoluira primeiro.
-- Se a fronteira deve ganhar testes arquiteturais especificos ja na primeira implementacao funcional.
 - Se outros modulos precisarao de contratos de leitura ou projecoes locais sobre tutores e animais.
 
 ## Criterios para revisao da fronteira

@@ -9,6 +9,7 @@ using PetShop.Api.Tenancy;
 using PetShop.Observability.AspNetCore.Extensions;
 using PetShop.Observability.Context;
 using PetShop.Observability.DependencyInjection;
+using PetShop.Tutores;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,7 @@ builder.Services.AddPetShopObservabilityPropagation();
 builder.AddPetShopOpenTelemetry();
 builder.Services.AddPetShopApiSecurity(builder.Configuration, builder.Environment);
 builder.Services.AddPetShopTenantContext();
+builder.Services.AddModuloTutores();
 
 var app = builder.Build();
 
@@ -60,5 +62,6 @@ app.MapGet(
             Results.Ok(DiagnosticsResponseFactory.Create(environment, executionContextAccessor, tenantContext)))
     .WithName("Diagnostics")
     .RequireAuthorization(PetShopAuthorizationPolicies.DiagnosticsAccess);
+app.MapModuloTutores();
 
 app.Run();

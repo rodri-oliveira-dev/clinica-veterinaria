@@ -12,6 +12,7 @@ src/
   Apps/PetShop.Api/
   BuildingBlocks/PetShop.Observability/
   BuildingBlocks/PetShop.Observability.AspNetCore/
+  Modules/Tutores/PetShop.Tutores/
 tests/
   PetShop.UnitTests/
   PetShop.ArchitectureTests/
@@ -26,6 +27,7 @@ tests/
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
+- `PetShop.Tutores`: fundacao do modulo Cadastro de Tutores e Animais, carregada pela API por `AddModuloTutores` e `MapModuloTutores`, ainda sem entidade persistida, migration, repository ou endpoint funcional.
 
 ## Decisoes preservadas
 
@@ -37,7 +39,7 @@ tests/
 - HTTP usa `X-Correlation-Id`.
 - `PetShop.Observability` nao depende de ASP.NET Core.
 - O AppHost e apenas composicao local; ele sobe PostgreSQL e Keycloak para desenvolvimento, incluindo realm e client locais, sem definir broker, cache ou gateway.
-- A primeira fatia de negocio documentada e `Cadastro de Tutores e Animais`, mantendo tutor, animal e vinculo no mesmo Bounded Context inicial.
+- A primeira fatia de negocio documentada e `Cadastro de Tutores e Animais`, mantendo tutor, animal e vinculo no mesmo Bounded Context inicial e materializada inicialmente em um unico assembly de modulo.
 
 As decisoes completas estao em:
 
@@ -422,7 +424,7 @@ Suites:
 
 - `PetShop.UnitTests`: tipos, factories e validacoes puras da API.
 - `PetShop.Observability.Tests`: propagacao, correlation, HTTP de saida e adapter ASP.NET Core.
-- `PetShop.ArchitectureTests`: regras de referencia entre projetos, ausencia de dependencia ASP.NET Core em `PetShop.Observability`, API sem dependencia do AppHost, producao sem dependencia de testes e ausencia de ciclos.
+- `PetShop.ArchitectureTests`: regras de referencia entre projetos, ausencia de dependencia ASP.NET Core em `PetShop.Observability`, API sem dependencia do AppHost, producao sem dependencia de testes, ausencia de ciclos e fronteiras iniciais do modulo `PetShop.Tutores`.
 - `PetShop.IntegrationTests`: WebApplicationFactory, JWT Bearer defensivo, Problem Details, health/readiness, OpenAPI e migrations em PostgreSQL real com Testcontainers.
 - `PetShop.AppHost.Tests`: smoke tests leves da composicao Aspire e do realm local do Keycloak.
 
@@ -432,8 +434,8 @@ Cobertura e usada como sinal de risco. Nao ha threshold artificial nesta entrega
 
 ## Escopo ainda nao implementado
 
-- Entidades e modulos de negocio tenant-owned.
+- Entidades de negocio tenant-owned.
 - Implementacao funcional de cadastro de tutores e animais, ja documentada em `docs/domain/tutores-e-animais.md`.
 - Query filters, interceptors de tenant, enforcement persistente e Row-Level Security.
-- Modulos de negocio como cadastro de tutores e animais, agenda, atendimento ou cobranca.
+- Outros modulos de negocio como agenda, atendimento ou cobranca.
 - Broker, Redis, API Gateway, microsservicos ou multiplos bancos.

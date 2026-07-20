@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>PetShop.Tutores</RootNamespace>
+    <AssemblyName>PetShop.Tutores</AssemblyName>
+    <Description>Modulo Cadastro de Tutores e Animais do monolito PetShop.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+</Project>

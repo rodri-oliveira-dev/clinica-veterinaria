@@ -37,11 +37,13 @@ tests/
 - HTTP usa `X-Correlation-Id`.
 - `PetShop.Observability` nao depende de ASP.NET Core.
 - O AppHost e apenas composicao local; ele sobe PostgreSQL e Keycloak para desenvolvimento, incluindo realm e client locais, sem definir broker, cache ou gateway.
+- A primeira fatia de negocio documentada e `Cadastro de Tutores e Animais`, mantendo tutor, animal e vinculo no mesmo Bounded Context inicial.
 
 As decisoes completas estao em:
 
 - `docs/adrs/0001-multitenancy-claim-e-isolamento-por-linha.md`
 - `docs/adrs/0002-library-propagacao-observabilidade.md`
+- `docs/adrs/0003-fronteira-cadastro-tutores-animais.md`
 
 ## Requisitos
 
@@ -431,6 +433,7 @@ Cobertura e usada como sinal de risco. Nao ha threshold artificial nesta entrega
 ## Escopo ainda nao implementado
 
 - Entidades e modulos de negocio tenant-owned.
+- Implementacao funcional de cadastro de tutores e animais, ja documentada em `docs/domain/tutores-e-animais.md`.
 - Query filters, interceptors de tenant, enforcement persistente e Row-Level Security.
-- Modulos de negocio como cadastro, pets, agenda, atendimento ou cobranca.
+- Modulos de negocio como cadastro de tutores e animais, agenda, atendimento ou cobranca.
 - Broker, Redis, API Gateway, microsservicos ou multiplos bancos.

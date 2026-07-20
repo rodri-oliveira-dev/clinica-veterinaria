@@ -140,7 +140,7 @@ Recursos locais:
 - `petshop`: banco logico criado no PostgreSQL local e referenciado pela API.
 - `keycloak`: Keycloak em container, exposto em porta estavel `8080` para evitar instabilidade de cookies OIDC durante o desenvolvimento.
 
-O AppHost usa `WaitFor` para aguardar PostgreSQL e Keycloak antes de iniciar a API, e `WithReference` para disponibilizar as informacoes dos recursos para a API. Nesta entrega a API consome o PostgreSQL via EF Core e o Keycloak ja possui realm e client locais, mas a API ainda nao autentica via JWT.
+O AppHost usa `WaitFor` para aguardar PostgreSQL e Keycloak antes de iniciar a API, e `WithReference` para disponibilizar as informacoes dos recursos para a API. Nesta entrega a API consome o PostgreSQL via EF Core e valida JWT Bearer emitido pelo realm local do Keycloak.
 
 Configuracao declarativa do Keycloak:
 
@@ -207,10 +207,23 @@ Separacao local/producao:
 - Producao nao deve depender do AppHost como runtime ou IaC obrigatoria.
 - PostgreSQL e Keycloak produtivos devem ser provisionados pela estrategia de infraestrutura propria do ambiente.
 
+## Observabilidade
+
+A API registra OpenTelemetry para traces, metricas e logs com `service.name` estavel `PetShop.Api`.
+
+Instrumentacoes habilitadas:
+
+- ASP.NET Core;
+- `HttpClient`;
+- metricas de runtime .NET.
+
+O exporter OTLP e habilitado somente quando houver endpoint configurado por `OpenTelemetry:Otlp:Endpoint`, `OpenTelemetry__Otlp__Endpoint` ou pela variavel padrao `OTEL_EXPORTER_OTLP_ENDPOINT`. Ao executar pelo AppHost Aspire, o endpoint OTLP do dashboard e injetado no processo da API e logs, traces e metricas passam a aparecer no Aspire Dashboard.
+
+O middleware de entrada aceita `X-Correlation-Id` valido ou cria um novo GUID, devolve o mesmo header na resposta e adiciona `correlation_id` e `tenant_id` como tags da Activity e scope de log. Esses identificadores nao sao adicionados ao W3C baggage; mensagens e jobs usam os headers canonicos `correlation_id`, `tenant_id`, `traceparent`, `tracestate` e `baggage` pelo building block `PetShop.Observability`.
+
 ## Escopo ainda nao implementado
 
 - Entidades e modulos de negocio tenant-owned.
 - Query filters, interceptors de tenant, enforcement persistente e Row-Level Security.
-- OpenTelemetry completo com exporter OTLP.
 - Modulos de negocio como cadastro, pets, agenda, atendimento ou cobranca.
 - Broker, Redis, API Gateway, microsservicos ou multiplos bancos.

@@ -35,12 +35,10 @@ public sealed class CorrelationContextMiddleware
 
         Activity? activity = Activity.Current;
         activity?.SetTag(PropagationHeaderNames.CorrelationId, correlationId);
-        activity?.SetBaggage(PropagationHeaderNames.CorrelationId, correlationId);
 
         if (tenantId is not null)
         {
             activity?.SetTag(PropagationHeaderNames.TenantId, tenantId);
-            activity?.SetBaggage(PropagationHeaderNames.TenantId, tenantId);
         }
 
         PropagationContextSnapshot snapshot = PropagationContextSnapshot.CaptureCurrent(

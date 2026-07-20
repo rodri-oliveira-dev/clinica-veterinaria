@@ -1,6 +1,7 @@
 using PetShop.Api.Authentication;
 using PetShop.Api.Diagnostics;
 using PetShop.Api.Infrastructure.Persistence;
+using PetShop.Api.Observability;
 using PetShop.Api.Tenancy;
 using PetShop.Observability.AspNetCore.Extensions;
 using PetShop.Observability.Context;
@@ -10,6 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddPetShopPersistence(builder.Configuration);
 builder.Services.AddPetShopObservabilityPropagation();
+builder.AddPetShopOpenTelemetry();
 builder.Services.AddPetShopApiSecurity(builder.Configuration, builder.Environment);
 builder.Services.AddPetShopTenantContext();
 

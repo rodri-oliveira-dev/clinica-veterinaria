@@ -15,6 +15,7 @@ Evoluir CI/CD e automações com segurança, rastreabilidade e custo proporciona
 - Build, testes, cobertura e artifacts.
 - Versionamento e Conventional Commits.
 - CodeQL, dependency review e auditoria NuGet.
+- Gitleaks, SonarCloud e demais gates de segurança.
 - Releases e publicação, quando houver estratégia definida.
 
 ## Princípios
@@ -27,6 +28,7 @@ Evoluir CI/CD e automações com segurança, rastreabilidade e custo proporciona
 - Não publique, faça deploy ou release durante uma validação comum.
 - Mantenha CI e comandos locais equivalentes quando isso for viável.
 - Não use o pipeline para esconder problemas de build ou testes.
+- Não duplique scanners sem gap demonstrado.
 
 ## Pipeline inicial recomendado
 
@@ -34,17 +36,20 @@ Evoluir CI/CD e automações com segurança, rastreabilidade e custo proporciona
 - build Release;
 - testes automatizados;
 - coleta de cobertura sem gate prematuro;
+- Gitleaks;
 - CodeQL;
-- dependency review.
+- dependency review;
+- SonarCloud opt-in após provisionar projeto e token.
 
 Adicione depois, somente quando necessário:
 
-- gate de cobertura;
+- gate de cobertura adicional;
 - OpenAPI lint;
 - testes de container;
+- Trivy de imagem e SBOM;
 - testes end-to-end;
-- análise de frontend;
-- DAST;
+- análise específica de frontend não coberta pelos scanners atuais;
+- DAST com ambiente autorizado;
 - mutation testing;
 - publicação de imagens;
 - release automático;
@@ -60,8 +65,9 @@ Adicione depois, somente quando necessário:
 6. Evite duplicar lógica complexa em vários workflows.
 7. Diferencie gate bloqueante de análise informativa.
 8. Não rode testes de carga ou e2e caros em todo commit sem justificativa.
-9. Valide YAML e comandos localmente quando possível.
-10. Atualize documentação quando o fluxo oficial mudar.
+9. Trate PR de fork e Dependabot sem expor secrets.
+10. Valide YAML e comandos localmente quando possível.
+11. Atualize documentação quando o fluxo oficial mudar.
 
 ## Segurança
 
@@ -71,6 +77,8 @@ Adicione depois, somente quando necessário:
 - Não amplie acesso de escrita sem justificativa.
 - Não execute scripts de PR externo com credenciais privilegiadas.
 - Não publique artifact contendo configuração sensível.
+- Não crie allowlist ampla ou suppression global apenas para liberar merge.
+- Mantenha Gitleaks, CodeQL, dependency review e auditoria NuGet ao habilitar SonarCloud.
 
 ## Releases
 

@@ -24,8 +24,10 @@ public sealed class MessagePropagationHandlerTests
         ActivityTraceId expectedTraceId;
         ActivitySpanId expectedParentSpanId;
 
-        using (var parent = new Activity("request").SetIdFormat(ActivityIdFormat.W3C).Start())
+        using (var parent = new Activity("request"))
         {
+            parent.SetIdFormat(ActivityIdFormat.W3C);
+            parent.Start();
             parent.SetBaggage("region", "south america");
             receivedContext = PropagationContextSnapshot.CaptureCurrent(correlationId, "tenant-a");
             expectedTraceId = parent.TraceId;
@@ -62,8 +64,10 @@ public sealed class MessagePropagationHandlerTests
         ActivityTraceId expectedTraceId;
         ActivitySpanId expectedParentSpanId;
 
-        using (var parent = new Activity("request").SetIdFormat(ActivityIdFormat.W3C).Start())
+        using (var parent = new Activity("request"))
         {
+            parent.SetIdFormat(ActivityIdFormat.W3C);
+            parent.Start();
             persistedContext = PropagationContextSnapshot.CaptureCurrent(correlationId, "tenant-a");
             expectedTraceId = parent.TraceId;
             expectedParentSpanId = parent.SpanId;

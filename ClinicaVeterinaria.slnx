@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/PetShop.Observability.AspNetCore/PetShop.Observability.AspNetCore.csproj" />
+    <Project Path="src/BuildingBlocks/PetShop.Observability/PetShop.Observability.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/BuildingBlocks/">
+    <Project Path="tests/BuildingBlocks/PetShop.Observability.Tests/PetShop.Observability.Tests.csproj" />
+  </Folder>
+</Solution>

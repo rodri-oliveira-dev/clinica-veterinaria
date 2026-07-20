@@ -23,7 +23,7 @@ tests/
 ## Projetos
 
 - `PetShop.Api`: ASP.NET Core API com endpoints minimos `/health` e `/diagnostics`, `PetShopDbContext` tecnico minimo e health check de PostgreSQL.
-- `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak para desenvolvimento.
+- `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
 
@@ -35,7 +35,7 @@ tests/
 - `CorrelationId` e independente de `TraceId`.
 - HTTP usa `X-Correlation-Id`.
 - `PetShop.Observability` nao depende de ASP.NET Core.
-- O AppHost e apenas composicao local; ele sobe PostgreSQL e Keycloak para desenvolvimento, mas nao define EF Core, realm, client, JWT, broker, cache ou gateway.
+- O AppHost e apenas composicao local; ele sobe PostgreSQL e Keycloak para desenvolvimento, incluindo realm e client locais, mas nao integra JWT na API nem define broker, cache ou gateway.
 
 As decisoes completas estao em:
 
@@ -129,7 +129,40 @@ Recursos locais:
 - `petshop`: banco logico criado no PostgreSQL local e referenciado pela API.
 - `keycloak`: Keycloak em container, exposto em porta estavel `8080` para evitar instabilidade de cookies OIDC durante o desenvolvimento.
 
-O AppHost usa `WaitFor` para aguardar PostgreSQL e Keycloak antes de iniciar a API, e `WithReference` para disponibilizar as informacoes dos recursos para a API. Nesta entrega a API consome o PostgreSQL via EF Core, mas ainda nao autentica via Keycloak; realm, client e JWT permanecem fora do escopo.
+O AppHost usa `WaitFor` para aguardar PostgreSQL e Keycloak antes de iniciar a API, e `WithReference` para disponibilizar as informacoes dos recursos para a API. Nesta entrega a API consome o PostgreSQL via EF Core e o Keycloak ja possui realm e client locais, mas a API ainda nao autentica via JWT.
+
+Configuracao declarativa do Keycloak:
+
+- Realm: `petshop-local`.
+- Issuer local esperado nos tokens: `http://localhost:8080/realms/petshop-local`.
+- Client da API: `petshop-api`, publico e habilitado para direct access grants apenas para desenvolvimento local.
+- Audience emitida no access token: `petshop-api`.
+- Role minima: client role `petshop.access` em `resource_access.petshop-api.roles`.
+- Usuario descartavel: `local.petshop.user`.
+- Senha descartavel local: `local-dev-password`.
+- Tenant local estavel: `11111111-1111-4111-8111-111111111111`.
+- Claim emitida no access token: `tenant_id`.
+
+O realm versionado fica em `src/AppHost/PetShop.AppHost/keycloak/realms/petshop-local-realm.json` e e importado automaticamente pelo AppHost com `WithRealmImport("keycloak/realms")`. Essa configuracao e apenas local, nao representa senha real nem politica produtiva de identidade.
+
+Para obter um access token local depois que o AppHost estiver rodando:
+
+```bash
+curl --request POST \
+  --url http://localhost:8080/realms/petshop-local/protocol/openid-connect/token \
+  --header "Content-Type: application/x-www-form-urlencoded" \
+  --data "grant_type=password" \
+  --data "client_id=petshop-api" \
+  --data "username=local.petshop.user" \
+  --data "password=local-dev-password"
+```
+
+Para inspecionar as claims sem colar o token em servicos externos, decodifique localmente o segundo segmento do JWT. O access token deve conter:
+
+- `iss` igual a `http://localhost:8080/realms/petshop-local`;
+- `aud` contendo `petshop-api`;
+- `resource_access.petshop-api.roles` contendo `petshop.access`;
+- `tenant_id` igual a `11111111-1111-4111-8111-111111111111`.
 
 Volumes persistentes:
 
@@ -143,7 +176,7 @@ Reset do ambiente local:
 2. Remova os volumes do PostgreSQL e Keycloak pelo Docker Desktop/Podman ou pela CLI do runtime local.
 3. Execute novamente `dotnet run --project ./src/AppHost/PetShop.AppHost/PetShop.AppHost.csproj`.
 
-Faca esse reset tambem se os logs mostrarem falha de autenticacao no PostgreSQL ou Keycloak depois de uma interrupcao forcada ou regeneracao de secrets locais, pois os volumes preservam credenciais internas do container.
+Faca esse reset tambem se os logs mostrarem falha de autenticacao no PostgreSQL ou Keycloak depois de uma interrupcao forcada, regeneracao de secrets locais ou alteracao do JSON do realm, pois os volumes preservam credenciais internas do container e realms ja importados.
 
 Separacao local/producao:
 
@@ -153,7 +186,7 @@ Separacao local/producao:
 
 ## Escopo ainda nao implementado
 
-- Realm, client, JWT, autenticacao e autorizacao.
+- Autenticacao JWT e autorizacao na API.
 - Implementacao tecnica de multitenancy.
 - Query filters, interceptors de tenant e Row-Level Security.
 - OpenTelemetry completo com exporter OTLP.

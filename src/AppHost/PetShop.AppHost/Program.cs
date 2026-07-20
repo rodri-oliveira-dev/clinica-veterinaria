@@ -6,7 +6,8 @@ var postgres = builder.AddPostgres("postgres")
 var petshopDatabase = postgres.AddDatabase("petshop");
 
 var keycloak = builder.AddKeycloak("keycloak", 8080)
-    .WithDataVolume();
+    .WithDataVolume()
+    .WithRealmImport("keycloak/realms");
 
 builder.AddProject<Projects.PetShop_Api>("petshop-api")
     .WithReference(petshopDatabase)

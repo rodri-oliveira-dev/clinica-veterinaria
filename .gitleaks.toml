@@ -1,0 +1,8 @@
+title = "Clinica Veterinaria Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+# Mantenha a configuração conservadora. Falsos positivos específicos devem ser
+# tratados preferencialmente por fingerprint em .gitleaksignore, com justificativa
+# revisada no pull request. Não exclua diretórios inteiros de testes ou documentação.

@@ -36,6 +36,95 @@ internal sealed class AnimaisRepository : IAnimaisRepository
         _dbContext.Set<Tutor>()
             .AnyAsync(tutor => tutor.Id == TutorId.Criar(tutorResponsavel.TutorId), cancellationToken);
 
+    public async Task<PesquisaDeAnimais> PesquisarAsync(
+        FiltrosDePesquisaDeAnimais filtros,
+        CancellationToken cancellationToken)
+    {
+        Animal[] animaisDoTenant = await _dbContext.Set<Animal>()
+            .AsNoTracking()
+            .ToArrayAsync(cancellationToken);
+        IEnumerable<Animal> query = animaisDoTenant;
+
+        if (!string.IsNullOrWhiteSpace(filtros.Nome))
+        {
+            string nome = filtros.Nome.Trim();
+            query = query.Where(animal =>
+                animal.Nome.Valor.Contains(nome, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (filtros.TutorResponsavel.HasValue)
+        {
+            query = query.Where(animal =>
+                animal.TutorResponsavel == filtros.TutorResponsavel.Value);
+        }
+
+        if (filtros.Especie.HasValue)
+        {
+            query = query.Where(animal =>
+                string.Equals(
+                    animal.Especie.Valor,
+                    filtros.Especie.Value.Valor,
+                    StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (filtros.Situacao.HasValue)
+        {
+            query = query.Where(animal => animal.Situacao == filtros.Situacao.Value);
+        }
+
+        int total = query.Count();
+
+        query = Ordenar(query, filtros);
+
+        Animal[] animais = query
+            .Skip((filtros.Pagina - 1) * filtros.TamanhoPagina)
+            .Take(filtros.TamanhoPagina)
+            .ToArray();
+
+        return new PesquisaDeAnimais(
+            animais.Select(MapearResumo).ToArray(),
+            filtros.Pagina,
+            filtros.TamanhoPagina,
+            total);
+    }
+
     public Task SalvarAsync(CancellationToken cancellationToken) =>
         _dbContext.SaveChangesAsync(cancellationToken);
+
+    private static IOrderedEnumerable<Animal> Ordenar(
+        IEnumerable<Animal> query,
+        FiltrosDePesquisaDeAnimais filtros)
+    {
+        return (filtros.OrdenarPor, filtros.Direcao) switch
+        {
+            (OrdenacaoDeAnimais.CriadoEm, DirecaoDaOrdenacao.Desc) => query
+                .OrderByDescending(animal => animal.CriadoEm)
+                .ThenBy(animal => animal.Id.Valor),
+            (OrdenacaoDeAnimais.CriadoEm, _) => query
+                .OrderBy(animal => animal.CriadoEm)
+                .ThenBy(animal => animal.Id.Valor),
+            (OrdenacaoDeAnimais.Nome, DirecaoDaOrdenacao.Desc) => query
+                .OrderByDescending(animal => animal.Nome.Valor, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(animal => animal.Id.Valor),
+            _ => query
+                .OrderBy(animal => animal.Nome.Valor, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(animal => animal.Id.Valor)
+        };
+    }
+
+    private static AnimalResumo MapearResumo(Animal animal) =>
+        new(
+            animal.Id.Valor,
+            animal.TutorResponsavel.TutorId,
+            animal.Nome.Valor,
+            animal.Especie.Valor,
+            MapearSituacao(animal.Situacao));
+
+    private static string MapearSituacao(SituacaoDoAnimal situacao) =>
+        situacao switch
+        {
+            SituacaoDoAnimal.Ativo => "ativo",
+            SituacaoDoAnimal.Inativo => "inativo",
+            _ => throw new ArgumentOutOfRangeException(nameof(situacao), situacao, null)
+        };
 }

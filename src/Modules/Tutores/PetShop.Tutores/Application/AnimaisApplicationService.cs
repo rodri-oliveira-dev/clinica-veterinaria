@@ -4,6 +4,10 @@ namespace PetShop.Tutores.Application;
 
 internal sealed class AnimaisApplicationService
 {
+    public const int PaginaPadrao = 1;
+    public const int TamanhoPaginaPadrao = 20;
+    public const int TamanhoPaginaMaximo = 100;
+
     private readonly IContextoTenantAtual _contextoTenantAtual;
     private readonly IAnimaisRepository _repository;
     private readonly TimeProvider _timeProvider;
@@ -22,9 +26,17 @@ internal sealed class AnimaisApplicationService
         CadastrarAnimalCommand command,
         CancellationToken cancellationToken)
     {
-        DadosDoAnimal dados = ValidarDadosDoAnimal(command);
+        DadosDoAnimal dados = ValidarDadosDoAnimal(
+            command.Nome,
+            command.Especie,
+            command.Raca,
+            command.Sexo,
+            command.DataDeNascimento,
+            command.CorOuPelagem,
+            command.ObservacaoCadastral);
+        TutorResponsavel tutorResponsavel = ValidarTutorResponsavel(command.TutorResponsavelId);
 
-        if (!await _repository.ExisteTutorResponsavelAsync(dados.TutorResponsavel, cancellationToken))
+        if (!await _repository.ExisteTutorResponsavelAsync(tutorResponsavel, cancellationToken))
         {
             throw new TutorResponsavelNaoEncontradoException();
         }
@@ -40,7 +52,7 @@ internal sealed class AnimaisApplicationService
             dados.DataDeNascimento,
             dados.CorOuPelagem,
             dados.ObservacaoCadastral,
-            dados.TutorResponsavel,
+            tutorResponsavel,
             agora);
 
         await _repository.AdicionarAsync(animal, cancellationToken);
@@ -60,18 +72,51 @@ internal sealed class AnimaisApplicationService
         return animal is null ? throw new AnimalNaoEncontradoException() : MapearDetalhe(animal);
     }
 
+    public async Task<AnimalDetalhe> AtualizarAsync(
+        AtualizarAnimalCommand command,
+        CancellationToken cancellationToken)
+    {
+        DadosDoAnimal dados = ValidarDadosDoAnimal(
+            command.Nome,
+            command.Especie,
+            command.Raca,
+            command.Sexo,
+            command.DataDeNascimento,
+            command.CorOuPelagem,
+            command.ObservacaoCadastral);
+        Animal animal = await ObterAnimalOuFalharAsync(
+            ValidarAnimalId(command.AnimalId),
+            cancellationToken);
+
+        animal.AlterarCadastro(
+            dados.Nome,
+            dados.Especie,
+            dados.Raca,
+            dados.Sexo,
+            dados.DataDeNascimento,
+            dados.CorOuPelagem,
+            dados.ObservacaoCadastral,
+            _timeProvider.GetUtcNow());
+
+        await _repository.SalvarAsync(cancellationToken);
+
+        return MapearDetalhe(animal);
+    }
+
+    public Task<PesquisaDeAnimais> PesquisarAsync(
+        PesquisarAnimaisQuery query,
+        CancellationToken cancellationToken)
+    {
+        FiltrosDePesquisaDeAnimais filtros = ValidarFiltrosDePesquisa(query);
+
+        return _repository.PesquisarAsync(filtros, cancellationToken);
+    }
+
     public async Task<AnimalDetalhe> InativarAsync(
         Guid animalId,
         CancellationToken cancellationToken)
     {
-        Animal? animal = await _repository.ObterPorIdAsync(
-            ValidarAnimalId(animalId),
-            cancellationToken);
-
-        if (animal is null)
-        {
-            throw new AnimalNaoEncontradoException();
-        }
+        Animal animal = await ObterAnimalOuFalharAsync(ValidarAnimalId(animalId), cancellationToken);
 
         try
         {
@@ -85,6 +130,15 @@ internal sealed class AnimaisApplicationService
         await _repository.SalvarAsync(cancellationToken);
 
         return MapearDetalhe(animal);
+    }
+
+    private async Task<Animal> ObterAnimalOuFalharAsync(
+        AnimalId animalId,
+        CancellationToken cancellationToken)
+    {
+        Animal? animal = await _repository.ObterPorIdAsync(animalId, cancellationToken);
+
+        return animal ?? throw new AnimalNaoEncontradoException();
     }
 
     private TenantId ObterTenantAtual()
@@ -113,53 +167,70 @@ internal sealed class AnimaisApplicationService
         }
     }
 
-    private DadosDoAnimal ValidarDadosDoAnimal(CadastrarAnimalCommand command)
+    private static TutorResponsavel ValidarTutorResponsavel(Guid tutorResponsavelId)
+    {
+        try
+        {
+            return TutorResponsavel.Criar(tutorResponsavelId);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new EntradaInvalidaException(new Dictionary<string, string[]>
+            {
+                ["tutorResponsavelId"] = [ex.Message]
+            });
+        }
+    }
+
+    private DadosDoAnimal ValidarDadosDoAnimal(
+        string? nome,
+        string? especie,
+        string? raca,
+        string? sexo,
+        DateOnly? dataDeNascimento,
+        string? corOuPelagem,
+        string? observacaoCadastral)
     {
         var erros = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
-        TutorResponsavel? tutorResponsavel = CriarValor(
-            () => TutorResponsavel.Criar(command.TutorResponsavelId),
-            "tutorResponsavelId",
-            erros);
-        NomeDoAnimal? nome = CriarValor(
-            () => NomeDoAnimal.Criar(command.Nome),
+        NomeDoAnimal? nomeDoAnimal = CriarValor(
+            () => NomeDoAnimal.Criar(nome),
             "nome",
             erros);
-        Especie? especie = CriarValor(
-            () => Especie.Criar(command.Especie),
+        Especie? especieDoAnimal = CriarValor(
+            () => Especie.Criar(especie),
             "especie",
             erros);
-        Raca? raca = string.IsNullOrWhiteSpace(command.Raca)
+        Raca? racaDoAnimal = string.IsNullOrWhiteSpace(raca)
             ? null
-            : CriarValor(() => Raca.Criar(command.Raca), "raca", erros);
-        SexoDoAnimal sexo = ParseSexo(command.Sexo, erros);
-        DataDeNascimento? dataDeNascimento = command.DataDeNascimento.HasValue
+            : CriarValor(() => Raca.Criar(raca), "raca", erros);
+        SexoDoAnimal sexoDoAnimal = ParseSexo(sexo, erros);
+        DataDeNascimento? nascimento = dataDeNascimento.HasValue
             ? CriarValor(
-                () => DataDeNascimento.Criar(command.DataDeNascimento.Value, DataAtual()),
+                () => DataDeNascimento.Criar(dataDeNascimento.Value, DataAtual()),
                 "dataDeNascimento",
                 erros)
             : null;
-        CorOuPelagem? corOuPelagem = string.IsNullOrWhiteSpace(command.CorOuPelagem)
+        CorOuPelagem? cor = string.IsNullOrWhiteSpace(corOuPelagem)
             ? null
-            : CriarValor(() => CorOuPelagem.Criar(command.CorOuPelagem), "corOuPelagem", erros);
-        ObservacaoCadastral? observacaoCadastral = string.IsNullOrWhiteSpace(command.ObservacaoCadastral)
+            : CriarValor(() => CorOuPelagem.Criar(corOuPelagem), "corOuPelagem", erros);
+        ObservacaoCadastral? observacao = string.IsNullOrWhiteSpace(observacaoCadastral)
             ? null
-            : CriarValor(() => ObservacaoCadastral.Criar(command.ObservacaoCadastral), "observacaoCadastral", erros);
+            : CriarValor(() => ObservacaoCadastral.Criar(observacaoCadastral), "observacaoCadastral", erros);
 
-        if (erros.Count > 0 || tutorResponsavel is null || nome is null || especie is null)
+        if (erros.Count > 0 || nomeDoAnimal is null || especieDoAnimal is null)
         {
             throw new EntradaInvalidaException(erros);
         }
 
         return new DadosDoAnimal(
-            tutorResponsavel.Value,
-            nome.Value,
-            especie.Value,
-            raca,
-            sexo,
-            dataDeNascimento,
-            corOuPelagem,
-            observacaoCadastral);
+            nomeDoAnimal.Value,
+            especieDoAnimal.Value,
+            racaDoAnimal,
+            sexoDoAnimal,
+            nascimento,
+            cor,
+            observacao);
     }
 
     private DateOnly DataAtual()
@@ -167,6 +238,48 @@ internal sealed class AnimaisApplicationService
         DateTimeOffset agora = _timeProvider.GetUtcNow();
 
         return DateOnly.FromDateTime(agora.UtcDateTime);
+    }
+
+    private static FiltrosDePesquisaDeAnimais ValidarFiltrosDePesquisa(PesquisarAnimaisQuery query)
+    {
+        var erros = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        int pagina = query.Pagina ?? PaginaPadrao;
+        int tamanhoPagina = query.TamanhoPagina ?? TamanhoPaginaPadrao;
+
+        if (pagina < 1)
+        {
+            erros["pagina"] = ["A pagina deve ser maior ou igual a 1."];
+        }
+
+        if (tamanhoPagina < 1 || tamanhoPagina > TamanhoPaginaMaximo)
+        {
+            erros["tamanhoPagina"] = [$"O tamanho da pagina deve estar entre 1 e {TamanhoPaginaMaximo}."];
+        }
+
+        TutorResponsavel? tutorResponsavel = query.TutorResponsavelId.HasValue
+            ? CriarValor(() => TutorResponsavel.Criar(query.TutorResponsavelId.Value), "tutorResponsavelId", erros)
+            : null;
+        Especie? especie = string.IsNullOrWhiteSpace(query.Especie)
+            ? null
+            : CriarValor(() => Especie.Criar(query.Especie), "especie", erros);
+        SituacaoDoAnimal? situacao = ParseSituacao(query.Situacao, erros);
+        OrdenacaoDeAnimais ordenarPor = ParseOrdenacao(query.OrdenarPor, erros);
+        DirecaoDaOrdenacao direcao = ParseDirecao(query.Direcao, erros);
+
+        if (erros.Count > 0)
+        {
+            throw new EntradaInvalidaException(erros);
+        }
+
+        return new FiltrosDePesquisaDeAnimais(
+            pagina,
+            tamanhoPagina,
+            string.IsNullOrWhiteSpace(query.Nome) ? null : query.Nome.Trim(),
+            tutorResponsavel,
+            especie,
+            situacao,
+            ordenarPor,
+            direcao);
     }
 
     private static T? CriarValor<T>(
@@ -209,11 +322,73 @@ internal sealed class AnimaisApplicationService
         };
     }
 
+    private static SituacaoDoAnimal? ParseSituacao(
+        string? valor,
+        Dictionary<string, string[]> erros)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+        {
+            return null;
+        }
+
+        return valor.Trim().ToLowerInvariant() switch
+        {
+            "ativo" => SituacaoDoAnimal.Ativo,
+            "inativo" => SituacaoDoAnimal.Inativo,
+            _ => RegistrarErro<SituacaoDoAnimal?>(
+                erros,
+                "situacao",
+                "A situacao deve ser ativo ou inativo.")
+        };
+    }
+
+    private static OrdenacaoDeAnimais ParseOrdenacao(
+        string? valor,
+        Dictionary<string, string[]> erros)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+        {
+            return OrdenacaoDeAnimais.Nome;
+        }
+
+        return valor.Trim().ToLowerInvariant() switch
+        {
+            "nome" => OrdenacaoDeAnimais.Nome,
+            "criadoem" or "criado_em" => OrdenacaoDeAnimais.CriadoEm,
+            _ => RegistrarErro(
+                erros,
+                "ordenarPor",
+                "A ordenacao deve ser nome ou criadoEm.",
+                OrdenacaoDeAnimais.Nome)
+        };
+    }
+
+    private static DirecaoDaOrdenacao ParseDirecao(
+        string? valor,
+        Dictionary<string, string[]> erros)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+        {
+            return DirecaoDaOrdenacao.Asc;
+        }
+
+        return valor.Trim().ToLowerInvariant() switch
+        {
+            "asc" => DirecaoDaOrdenacao.Asc,
+            "desc" => DirecaoDaOrdenacao.Desc,
+            _ => RegistrarErro(
+                erros,
+                "direcao",
+                "A direcao deve ser asc ou desc.",
+                DirecaoDaOrdenacao.Asc)
+        };
+    }
+
     private static T RegistrarErro<T>(
         Dictionary<string, string[]> erros,
         string campo,
         string mensagem,
-        T fallback)
+        T fallback = default!)
     {
         erros[campo] = [mensagem];
 
@@ -254,7 +429,6 @@ internal sealed class AnimaisApplicationService
         };
 
     private readonly record struct DadosDoAnimal(
-        TutorResponsavel TutorResponsavel,
         NomeDoAnimal Nome,
         Especie Especie,
         Raca? Raca,

@@ -14,5 +14,9 @@ internal interface IAnimaisRepository
         TutorResponsavel tutorResponsavel,
         CancellationToken cancellationToken);
 
+    Task<PesquisaDeAnimais> PesquisarAsync(
+        FiltrosDePesquisaDeAnimais filtros,
+        CancellationToken cancellationToken);
+
     Task SalvarAsync(CancellationToken cancellationToken);
 }

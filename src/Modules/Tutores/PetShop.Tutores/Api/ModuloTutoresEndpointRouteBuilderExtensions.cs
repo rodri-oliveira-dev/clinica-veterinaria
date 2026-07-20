@@ -212,6 +212,208 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
+        RouteGroupBuilder animais = endpoints
+            .MapGroup("/animais")
+            .WithTags("Animais");
+
+        if (authorizationPolicy is null)
+        {
+            animais.RequireAuthorization();
+        }
+        else
+        {
+            animais.RequireAuthorization(authorizationPolicy);
+        }
+
+        animais.MapPost(
+                string.Empty,
+                async (
+                    CadastrarAnimalRequest request,
+                    AnimaisApplicationService animaisService,
+                    CancellationToken cancellationToken) =>
+                {
+                    try
+                    {
+                        AnimalDetalhe animal = await animaisService.CadastrarAsync(
+                            new CadastrarAnimalCommand(
+                                request.TutorResponsavelId,
+                                request.Nome,
+                                request.Especie,
+                                request.Raca,
+                                request.Sexo,
+                                request.DataDeNascimento,
+                                request.CorOuPelagem,
+                                request.ObservacaoCadastral),
+                            cancellationToken);
+
+                        return Results.Created(
+                            $"/animais/{animal.AnimalId:D}",
+                            AnimalResponse.From(animal));
+                    }
+                    catch (EntradaInvalidaException ex)
+                    {
+                        return EntradaInvalida(ex);
+                    }
+                    catch (TutorResponsavelNaoEncontradoException)
+                    {
+                        return TutorResponsavelNaoEncontrado();
+                    }
+                })
+            .WithName("CadastrarAnimal")
+            .Produces<AnimalResponse>(StatusCodes.Status201Created)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        animais.MapGet(
+                "/{animalId:guid}",
+                async (
+                    Guid animalId,
+                    AnimaisApplicationService animaisService,
+                    CancellationToken cancellationToken) =>
+                {
+                    try
+                    {
+                        AnimalDetalhe animal = await animaisService.ConsultarPorIdAsync(animalId, cancellationToken);
+
+                        return Results.Ok(AnimalResponse.From(animal));
+                    }
+                    catch (EntradaInvalidaException ex)
+                    {
+                        return EntradaInvalida(ex);
+                    }
+                    catch (AnimalNaoEncontradoException)
+                    {
+                        return AnimalNaoEncontrado();
+                    }
+                })
+            .WithName("ConsultarAnimalPorId")
+            .Produces<AnimalResponse>()
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        animais.MapPut(
+                "/{animalId:guid}",
+                async (
+                    Guid animalId,
+                    AtualizarAnimalRequest request,
+                    AnimaisApplicationService animaisService,
+                    CancellationToken cancellationToken) =>
+                {
+                    try
+                    {
+                        AnimalDetalhe animal = await animaisService.AtualizarAsync(
+                            new AtualizarAnimalCommand(
+                                animalId,
+                                request.Nome,
+                                request.Especie,
+                                request.Raca,
+                                request.Sexo,
+                                request.DataDeNascimento,
+                                request.CorOuPelagem,
+                                request.ObservacaoCadastral),
+                            cancellationToken);
+
+                        return Results.Ok(AnimalResponse.From(animal));
+                    }
+                    catch (EntradaInvalidaException ex)
+                    {
+                        return EntradaInvalida(ex);
+                    }
+                    catch (AnimalNaoEncontradoException)
+                    {
+                        return AnimalNaoEncontrado();
+                    }
+                })
+            .WithName("AtualizarAnimal")
+            .Produces<AnimalResponse>()
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        animais.MapGet(
+                string.Empty,
+                async (
+                    int? pagina,
+                    int? tamanhoPagina,
+                    string? nome,
+                    Guid? tutorResponsavelId,
+                    string? especie,
+                    string? situacao,
+                    string? ordenarPor,
+                    string? direcao,
+                    AnimaisApplicationService animaisService,
+                    CancellationToken cancellationToken) =>
+                {
+                    try
+                    {
+                        PesquisaDeAnimais pesquisa = await animaisService.PesquisarAsync(
+                            new PesquisarAnimaisQuery(
+                                pagina,
+                                tamanhoPagina,
+                                nome,
+                                tutorResponsavelId,
+                                especie,
+                                situacao,
+                                ordenarPor,
+                                direcao),
+                            cancellationToken);
+
+                        return Results.Ok(PesquisarAnimaisResponse.From(pesquisa));
+                    }
+                    catch (EntradaInvalidaException ex)
+                    {
+                        return EntradaInvalida(ex);
+                    }
+                })
+            .WithName("PesquisarAnimais")
+            .Produces<PesquisarAnimaisResponse>()
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        animais.MapPost(
+                "/{animalId:guid}/inativacao",
+                async (
+                    Guid animalId,
+                    AnimaisApplicationService animaisService,
+                    CancellationToken cancellationToken) =>
+                {
+                    try
+                    {
+                        AnimalDetalhe animal = await animaisService.InativarAsync(animalId, cancellationToken);
+
+                        return Results.Ok(AnimalResponse.From(animal));
+                    }
+                    catch (EntradaInvalidaException ex)
+                    {
+                        return EntradaInvalida(ex);
+                    }
+                    catch (AnimalNaoEncontradoException)
+                    {
+                        return AnimalNaoEncontrado();
+                    }
+                    catch (AnimalJaInativoException)
+                    {
+                        return Results.Problem(
+                            statusCode: StatusCodes.Status409Conflict,
+                            title: "Animal ja inativo.",
+                            detail: "O animal informado ja esta inativo.",
+                            type: "urn:petshop:error:resource.conflict");
+                    }
+                })
+            .WithName("InativarAnimal")
+            .Produces<AnimalResponse>()
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         return endpoints;
     }
 
@@ -237,6 +439,20 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
             detail: "Ja existe tutor cadastrado com este CPF no tenant atual.",
             type: "urn:petshop:error:resource.conflict");
 
+    private static IResult AnimalNaoEncontrado() =>
+        Results.Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            title: "Animal nao encontrado.",
+            detail: "O animal solicitado nao existe ou nao esta visivel no tenant atual.",
+            type: "urn:petshop:error:resource.not_found");
+
+    private static IResult TutorResponsavelNaoEncontrado() =>
+        Results.Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            title: "Tutor responsavel nao encontrado.",
+            detail: "O tutor responsavel informado nao existe ou nao esta visivel no tenant atual.",
+            type: "urn:petshop:error:resource.not_found");
+
     private sealed class CadastrarTutorRequest
     {
         public string? Nome { get; init; }
@@ -257,6 +473,42 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
         public string? Email { get; init; }
 
         public string? Telefone { get; init; }
+    }
+
+    private sealed class CadastrarAnimalRequest
+    {
+        public Guid TutorResponsavelId { get; init; }
+
+        public string? Nome { get; init; }
+
+        public string? Especie { get; init; }
+
+        public string? Raca { get; init; }
+
+        public string? Sexo { get; init; }
+
+        public DateOnly? DataDeNascimento { get; init; }
+
+        public string? CorOuPelagem { get; init; }
+
+        public string? ObservacaoCadastral { get; init; }
+    }
+
+    private sealed class AtualizarAnimalRequest
+    {
+        public string? Nome { get; init; }
+
+        public string? Especie { get; init; }
+
+        public string? Raca { get; init; }
+
+        public string? Sexo { get; init; }
+
+        public DateOnly? DataDeNascimento { get; init; }
+
+        public string? CorOuPelagem { get; init; }
+
+        public string? ObservacaoCadastral { get; init; }
     }
 
     private sealed record TutorResponse(
@@ -306,6 +558,68 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
         public static PesquisarTutoresResponse From(PesquisaDeTutores pesquisa) =>
             new(
                 pesquisa.Itens.Select(TutorResumoResponse.From).ToArray(),
+                pesquisa.Pagina,
+                pesquisa.TamanhoPagina,
+                pesquisa.Total);
+    }
+
+    private sealed record AnimalResponse(
+        Guid AnimalId,
+        Guid TutorResponsavelId,
+        string Nome,
+        string Especie,
+        string? Raca,
+        string Sexo,
+        DateOnly? DataDeNascimento,
+        string? CorOuPelagem,
+        string? ObservacaoCadastral,
+        string Situacao,
+        DateTimeOffset CriadoEm,
+        DateTimeOffset AtualizadoEm,
+        DateTimeOffset? InativadoEm)
+    {
+        public static AnimalResponse From(AnimalDetalhe animal) =>
+            new(
+                animal.AnimalId,
+                animal.TutorResponsavelId,
+                animal.Nome,
+                animal.Especie,
+                animal.Raca,
+                animal.Sexo,
+                animal.DataDeNascimento,
+                animal.CorOuPelagem,
+                animal.ObservacaoCadastral,
+                animal.Situacao,
+                animal.CriadoEm,
+                animal.AtualizadoEm,
+                animal.InativadoEm);
+    }
+
+    private sealed record AnimalResumoResponse(
+        Guid AnimalId,
+        Guid TutorResponsavelId,
+        string Nome,
+        string Especie,
+        string Situacao)
+    {
+        public static AnimalResumoResponse From(AnimalResumo animal) =>
+            new(
+                animal.AnimalId,
+                animal.TutorResponsavelId,
+                animal.Nome,
+                animal.Especie,
+                animal.Situacao);
+    }
+
+    private sealed record PesquisarAnimaisResponse(
+        IReadOnlyCollection<AnimalResumoResponse> Itens,
+        int Pagina,
+        int TamanhoPagina,
+        int Total)
+    {
+        public static PesquisarAnimaisResponse From(PesquisaDeAnimais pesquisa) =>
+            new(
+                pesquisa.Itens.Select(AnimalResumoResponse.From).ToArray(),
                 pesquisa.Pagina,
                 pesquisa.TamanhoPagina,
                 pesquisa.Total);

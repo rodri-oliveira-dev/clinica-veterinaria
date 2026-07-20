@@ -27,7 +27,7 @@ tests/
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
-- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui o aggregate `Tutor` persistido em PostgreSQL e endpoints HTTP para cadastro, consulta, atualizacao, pesquisa e inativacao, alem do aggregate `Animal` persistido com vinculo a tutor no mesmo ownership. Ainda nao ha endpoint HTTP de animais, transferencia de responsabilidade ou repository generico.
+- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui os aggregates `Tutor` e `Animal` persistidos em PostgreSQL, com endpoints HTTP para cadastro, consulta, atualizacao, pesquisa e inativacao. Ainda nao ha transferencia de responsabilidade ou repository generico.
 
 ## Decisoes preservadas
 
@@ -259,6 +259,18 @@ Endpoints funcionais de Tutores:
 
 Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Dados de outro tenant retornam `404` nos fluxos por identificador. CPF e aceito como filtro normalizado, mas as respostas expõem apenas `cpfMascarado`.
 
+Endpoints funcionais de Animais:
+
+| Metodo | Rota | Uso |
+| --- | --- | --- |
+| `POST` | `/animais` | Cadastra animal vinculado a tutor responsavel do tenant atual e retorna `201 Created` com `Location`. |
+| `GET` | `/animais/{animalId}` | Consulta animal visivel no tenant atual. |
+| `PUT` | `/animais/{animalId}` | Atualiza cadastro do animal pela rota, sem trocar tutor responsavel nem aceitar `tenant_id` ou `id` no body como autoridade. |
+| `GET` | `/animais` | Pesquisa animais com `pagina`, `tamanhoPagina`, `nome`, `tutorResponsavelId`, `especie`, `situacao`, `ordenarPor` e `direcao`. |
+| `POST` | `/animais/{animalId}/inativacao` | Inativa animal sem hard delete. |
+
+Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Tutor responsavel inexistente ou pertencente a outro tenant retorna `404`. Dados de outro tenant retornam `404` nos fluxos por identificador. As respostas de animais retornam somente `tutorResponsavelId`, sem duplicar dados pessoais do tutor.
+
 Health checks:
 
 - `/health/live`: liveness local, nao depende de PostgreSQL nem de servicos externos;
@@ -471,7 +483,6 @@ Cobertura e usada como sinal de risco. Nao ha threshold artificial nesta entrega
 
 ## Escopo ainda nao implementado
 
-- Endpoints funcionais de animais e vinculos, ja documentados em `docs/domain/tutores-e-animais.md`.
 - Transferencia de responsabilidade do animal.
 - Row-Level Security.
 - Outros modulos de negocio como agenda, atendimento ou cobranca.

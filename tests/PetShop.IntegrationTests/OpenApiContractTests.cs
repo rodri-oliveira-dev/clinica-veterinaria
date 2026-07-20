@@ -56,20 +56,35 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.True(paths.GetProperty("/tutores/{tutorId}").TryGetProperty("get", out JsonElement consultarTutor));
         Assert.True(paths.GetProperty("/tutores/{tutorId}").TryGetProperty("put", out JsonElement atualizarTutor));
         Assert.True(paths.GetProperty("/tutores/{tutorId}/inativacao").TryGetProperty("post", out JsonElement inativarTutor));
+        Assert.True(paths.GetProperty("/animais").TryGetProperty("post", out JsonElement cadastrarAnimal));
+        Assert.True(paths.GetProperty("/animais").TryGetProperty("get", out JsonElement pesquisarAnimais));
+        Assert.True(paths.GetProperty("/animais/{animalId}").TryGetProperty("get", out JsonElement consultarAnimal));
+        Assert.True(paths.GetProperty("/animais/{animalId}").TryGetProperty("put", out JsonElement atualizarAnimal));
+        Assert.True(paths.GetProperty("/animais/{animalId}/inativacao").TryGetProperty("post", out JsonElement inativarAnimal));
 
-        AssertSecuredTutorOperation(cadastrarTutor);
-        AssertSecuredTutorOperation(pesquisarTutores);
-        AssertSecuredTutorOperation(consultarTutor);
-        AssertSecuredTutorOperation(atualizarTutor);
-        AssertSecuredTutorOperation(inativarTutor);
+        AssertSecuredModuleOperation(cadastrarTutor);
+        AssertSecuredModuleOperation(pesquisarTutores);
+        AssertSecuredModuleOperation(consultarTutor);
+        AssertSecuredModuleOperation(atualizarTutor);
+        AssertSecuredModuleOperation(inativarTutor);
+        AssertSecuredModuleOperation(cadastrarAnimal);
+        AssertSecuredModuleOperation(pesquisarAnimais);
+        AssertSecuredModuleOperation(consultarAnimal);
+        AssertSecuredModuleOperation(atualizarAnimal);
+        AssertSecuredModuleOperation(inativarAnimal);
         Assert.Contains(
             consultarTutor.GetProperty("parameters").EnumerateArray(),
             parameter =>
                 parameter.GetProperty("name").GetString() == "tutorId" &&
                 parameter.GetProperty("in").GetString() == "path");
+        Assert.Contains(
+            consultarAnimal.GetProperty("parameters").EnumerateArray(),
+            parameter =>
+                parameter.GetProperty("name").GetString() == "animalId" &&
+                parameter.GetProperty("in").GetString() == "path");
     }
 
-    private static void AssertSecuredTutorOperation(JsonElement operation)
+    private static void AssertSecuredModuleOperation(JsonElement operation)
     {
         Assert.True(operation.TryGetProperty("security", out JsonElement security));
         Assert.NotEmpty(security.EnumerateArray());

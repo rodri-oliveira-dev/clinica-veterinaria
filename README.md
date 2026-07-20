@@ -7,15 +7,18 @@ O conteúdo foi revisado para não depender dos bounded contexts, nomes de solu�
 ## O que está incluído
 
 - `AGENTS.md`: regras globais para agentes de código, incluindo multitenancy e propagação de observabilidade obrigatórios.
-- `.agents/skills/`: skills reutilizáveis para DDD, .NET, EF Core, testes, cobertura, observabilidade, containers, CI e multitenancy.
+- `.agents/skills/`: skills reutilizáveis para DDD, .NET, EF Core, testes, cobertura, observabilidade, containers, CI, multitenancy e segurança de aplicação.
 - `docs/adrs/`: decisões arquiteturais iniciais de multitenancy e propagação distribuída.
+- `docs/security/`: registro de migração das skills de cybersecurity e template versionável de threat model.
 - `src/BuildingBlocks/PetShop.Observability/`: núcleo agnóstico para correlation, contexto W3C, mensageria, Outbox e HTTP de saída.
 - `src/BuildingBlocks/PetShop.Observability.AspNetCore/`: middleware de correlation e tenant para APIs.
 - `tests/BuildingBlocks/PetShop.Observability.Tests/`: testes do contrato de propagação.
 - `.githooks/`: Conventional Commits, restore após merge e validação antes do push.
 - `scripts/setup/`: configuração segura de `core.hooksPath` para Bash e PowerShell.
 - `.github/actions/setup-dotnet/`: action composta para SDK e cache NuGet.
-- `.github/workflows/`: CI .NET inicial, CodeQL e dependency review.
+- `.github/workflows/`: CI .NET, CodeQL, dependency review, Gitleaks e SonarCloud opt-in.
+- `.gitleaks.toml`: configuração conservadora de secret scanning.
+- `third-party/licenses/`: licenças de materiais externos adaptados.
 - `.editorconfig`, `Directory.Build.props`, `Directory.Packages.props`, `global.json` e `coverlet.runsettings`: baseline de desenvolvimento .NET.
 - `.gitignore`, `.gitattributes` e `.dockerignore`: baseline de repositório e containers.
 
@@ -59,6 +62,28 @@ Fontes de verdade:
 - `.agents/skills/configuring-opentelemetry-dotnet/SKILL.md`;
 - seção `Observabilidade e propagação` do `AGENTS.md`.
 
+## Baseline de segurança
+
+As skills e automações iniciais cobrem:
+
+- threat modeling com STRIDE/LINDDUN e foco multitenant;
+- validação de entrada ASP.NET Core orientada pelas entidades, Value Objects e invariantes;
+- secret scanning com Gitleaks;
+- CodeQL, dependency review e auditoria NuGet;
+- SonarCloud opt-in;
+- configuração defensiva de JWT/OIDC para futura integração com Keycloak.
+
+Fontes de verdade:
+
+- `docs/security/cybersecurity-skills-migration.md`;
+- `.agents/skills/threat-modeling-clinica-veterinaria/SKILL.md`;
+- `.agents/skills/input-validation-dotnet/SKILL.md`;
+- `.agents/skills/secret-scanning-gitleaks/SKILL.md`;
+- `.agents/skills/devsecops-security-scanning/SKILL.md`;
+- `.agents/skills/keycloak-jwt-security/SKILL.md`.
+
+O workflow do SonarCloud permanece ignorado até a configuração das repository variables e do secret descritos no documento de migração.
+
 ## O que foi deixado de fora
 
 Estes itens da POC anterior não foram copiados porque dependem de decisões ainda não tomadas no novo projeto:
@@ -67,8 +92,8 @@ Estes itens da POC anterior não foram copiados porque dependem de decisões ain
 - Nginx e topologia de borda;
 - implementação concreta de Kafka, Pub/Sub, Outbox, DLQ e contratos de eventos;
 - configuração de collector, exporter, backend APM, dashboards e alertas;
-- workflows de OpenAPI, eventos, publicação NuGet e release;
-- SonarCloud, mutation testing, k6 e OWASP ZAP;
+- mutation testing, k6 e OWASP ZAP;
+- scanning de imagem e SBOM antes de existir artefato oficial;
 - arquitetura C4/LikeC4 específica da POC;
 - scripts e configurações ligados aos serviços financeiros existentes.
 
@@ -106,6 +131,8 @@ No PowerShell:
 ./scripts/setup/configure-git-hooks.sh --check
 ```
 
+10. Configure SonarCloud quando o projeto estiver cadastrado, seguindo `docs/security/cybersecurity-skills-migration.md`.
+
 ## Premissas iniciais
 
 O baseline assume:
@@ -123,6 +150,7 @@ O baseline assume:
 - DDD aplicado somente onde houver linguagem, invariantes e ciclo de vida relevantes;
 - PostgreSQL e EF Core como direção provável, sem obrigar sua adoção antes da modelagem;
 - REST/OpenAPI como integração inicial com o frontend;
+- Keycloak como direção para identidade, ainda dependente de configuração de realm, clients e claims;
 - extração de microsserviços somente quando houver motivo de negócio, escala ou autonomia.
 
 ## Próximos passos sugeridos
@@ -142,6 +170,9 @@ Desde a primeira fatia:
 - valide que não existe leitura ou alteração cruzada;
 - configure OpenTelemetry no executável;
 - registre o middleware de contexto;
-- use a library em qualquer chamada HTTP ou processo assíncrono.
+- use a library em qualquer chamada HTTP ou processo assíncrono;
+- derive tipos e limites de entrada das entidades e Value Objects;
+- mantenha o Gitleaks ativo;
+- habilite o SonarCloud quando as credenciais estiverem configuradas.
 
 Evite instalar toda a infraestrutura da POC anterior antes de existir um problema concreto que a justifique.

@@ -83,10 +83,17 @@ Configure no GitHub:
 
 ```text
 SONARCLOUD_ENABLED=true
-SONAR_PROJECT_KEY=<project-key>
-SONAR_ORGANIZATION=<organization-key>
 SONAR_HOST_URL=https://sonarcloud.io
 ```
+
+`SONAR_PROJECT_KEY` e `SONAR_ORGANIZATION` possuem defaults versionados em `.github/workflows/sonarcloud.yml` para este repositório:
+
+```text
+SONAR_PROJECT_KEY=rodri-oliveira-dev_clinica-veterinaria
+SONAR_ORGANIZATION=rodri-oliveira-dev
+```
+
+Configure essas variáveis no GitHub somente quando precisar sobrescrever os defaults.
 
 `SONAR_HOST_URL` pode ser ajustada conforme a região escolhida no SonarQube Cloud.
 

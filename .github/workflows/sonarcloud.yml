@@ -45,8 +45,8 @@ jobs:
     timeout-minutes: 40
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
-      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || 'rodri-oliveira-dev_clinica-veterinaria' }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION || 'rodri-oliveira-dev' }}
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
 
     steps:

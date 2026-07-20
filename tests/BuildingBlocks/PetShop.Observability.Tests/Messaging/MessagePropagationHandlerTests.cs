@@ -46,8 +46,10 @@ public sealed class MessagePropagationHandlerTests
         Assert.Equal(expectedTraceId, consumer.TraceId);
         Assert.Equal(expectedParentSpanId, consumer.ParentSpanId);
         Assert.Equal("south america", consumer.GetBaggageItem("region"));
-        Assert.Equal(correlationId, consumer.GetBaggageItem(PropagationHeaderNames.CorrelationId));
-        Assert.Equal("tenant-a", consumer.GetBaggageItem(PropagationHeaderNames.TenantId));
+        Assert.Null(consumer.GetBaggageItem(PropagationHeaderNames.CorrelationId));
+        Assert.Null(consumer.GetBaggageItem(PropagationHeaderNames.TenantId));
+        Assert.Equal(correlationId, consumer.GetTagItem(PropagationHeaderNames.CorrelationId));
+        Assert.Equal("tenant-a", consumer.GetTagItem(PropagationHeaderNames.TenantId));
         Assert.Equal("kafka", consumer.GetTagItem("messaging.system"));
         Assert.Equal("appointments.v1", consumer.GetTagItem("messaging.destination.name"));
     }

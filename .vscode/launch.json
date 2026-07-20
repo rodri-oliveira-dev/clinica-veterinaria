@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PetShop.Api (host, local dependencies required)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "dotnet: build PetShop.Api",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--no-launch-profile",
+        "--project",
+        "${workspaceFolder}/src/Apps/PetShop.Api/PetShop.Api.csproj"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ConnectionStrings__petshop": "Host=localhost;Port=5432;Database=petshop;Username=petshop;Password=petshop-local-password"
+      },
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "PetShop.AppHost (Aspire)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "dotnet: build PetShop.AppHost",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/src/AppHost/PetShop.AppHost/PetShop.AppHost.csproj"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DOTNET_ENVIRONMENT": "Development"
+      },
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}

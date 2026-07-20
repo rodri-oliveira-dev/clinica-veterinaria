@@ -44,10 +44,17 @@ Configure as repository variables:
 
 ```text
 SONARCLOUD_ENABLED=true
-SONAR_PROJECT_KEY=<project-key>
-SONAR_ORGANIZATION=<organization-key>
 SONAR_HOST_URL=https://sonarcloud.io
 ```
+
+`SONAR_PROJECT_KEY` e `SONAR_ORGANIZATION` possuem defaults versionados no workflow para este repositório:
+
+```text
+SONAR_PROJECT_KEY=rodri-oliveira-dev_clinica-veterinaria
+SONAR_ORGANIZATION=rodri-oliveira-dev
+```
+
+Use repository variables com esses nomes somente se o projeto for renomeado, transferido ou precisar sobrescrever os defaults.
 
 Configure o repository secret:
 

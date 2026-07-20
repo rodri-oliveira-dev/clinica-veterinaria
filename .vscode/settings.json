@@ -1,0 +1,80 @@
+{
+  "dotnet.defaultSolution": "ClinicaVeterinaria.slnx",
+  "dotnet.server.useOmnisharp": false,
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "files.associations": {
+    "*.slnx": "xml"
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/.vs": true,
+    "**/artifacts": true,
+    "**/bin": true,
+    "**/coverage": true,
+    "**/coverage-report": true,
+    "**/obj": true,
+    "**/StrykerOutput": true,
+    "**/TestResults": true
+  },
+  "search.exclude": {
+    "**/.git": true,
+    "**/.nuget": true,
+    "**/.vs": true,
+    "**/artifacts": true,
+    "**/bin": true,
+    "**/coverage": true,
+    "**/coverage-report": true,
+    "**/obj": true,
+    "**/StrykerOutput": true,
+    "**/TestResults": true
+  },
+  "files.watcherExclude": {
+    "**/.git/**": true,
+    "**/.nuget/**": true,
+    "**/.vs/**": true,
+    "**/artifacts/**": true,
+    "**/bin/**": true,
+    "**/coverage/**": true,
+    "**/coverage-report/**": true,
+    "**/obj/**": true,
+    "**/StrykerOutput/**": true,
+    "**/TestResults/**": true
+  },
+  "search.useIgnoreFiles": true,
+  "search.useGlobalIgnoreFiles": true,
+  "markdown.preview.mermaid": true,
+  "markdown.preview.experimental.useMermaid": true,
+  "sonarlint.testFilePattern": "**/*Tests*/**,**/*.Tests/**,**/*Test.cs,**/*Tests.cs",
+  "sonarlint.analysisExcludesStandalone": "**/bin/**,**/obj/**,**/.vs/**,**/.nuget/**,**/TestResults/**,**/artifacts/**,**/coverage/**,**/coverage-report/**,**/StrykerOutput/**",
+  "sonarlint.output.showVerboseLogs": false,
+  "sonarlint.trace.server": "off",
+  "sonarlint.disableTelemetry": true,
+  "trivy.binaryPath": "trivy",
+  "trivy.debug": false,
+  "trivy.vulnScanning": true,
+  "trivy.misconfigScanning": true,
+  "trivy.secretScanning": true,
+  "trivy.dotnetProjScanning": true,
+  "trivy.packageJsonScanning": false,
+  "trivy.gradleScanning": false,
+  "trivy.offlineScan": false,
+  "trivy.fixedOnly": false,
+  "trivy.minimumReportedSeverity": "MEDIUM",
+  "trivy.ignoreFilesInGitIgnore": true,
+  "trivy.skipDirList": [
+    ".git",
+    ".nuget",
+    ".vs",
+    "artifacts",
+    "bin",
+    "coverage",
+    "coverage-report",
+    "obj",
+    "StrykerOutput",
+    "TestResults"
+  ],
+  "trivy.useAquaPlatform": false
+}

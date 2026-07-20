@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Claims;
 
 using Microsoft.AspNetCore.Http;
@@ -32,6 +33,9 @@ public sealed class CorrelationContextMiddlewareTests
         context.User = new ClaimsPrincipal(new ClaimsIdentity(
             [new Claim(PropagationHeaderNames.TenantId, "tenant-a")],
             "test"));
+        using var activity = new Activity("test-request");
+        activity.SetIdFormat(ActivityIdFormat.W3C);
+        activity.Start();
 
         await middleware.InvokeAsync(context, accessor);
 
@@ -39,6 +43,11 @@ public sealed class CorrelationContextMiddlewareTests
         Assert.Equal(correlationId, captured.Value.CorrelationId);
         Assert.Equal("tenant-a", captured.Value.TenantId);
         Assert.Equal(correlationId, context.Request.Headers[PropagationHeaderNames.HttpCorrelationId]);
+        Assert.Equal(correlationId, activity.GetTagItem(PropagationHeaderNames.CorrelationId));
+        Assert.Equal("tenant-a", activity.GetTagItem(PropagationHeaderNames.TenantId));
+        Assert.Null(activity.GetBaggageItem(PropagationHeaderNames.CorrelationId));
+        Assert.Null(activity.GetBaggageItem(PropagationHeaderNames.TenantId));
+        Assert.NotEqual(correlationId.Replace("-", string.Empty, StringComparison.Ordinal), activity.TraceId.ToString());
         Assert.Null(accessor.Current);
     }
 

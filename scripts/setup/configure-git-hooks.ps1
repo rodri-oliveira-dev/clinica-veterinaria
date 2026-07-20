@@ -16,6 +16,8 @@ if ($LASTEXITCODE -ne 0) {
 
 $repoRoot = (& git rev-parse --show-toplevel).Trim()
 $hooksDir = Join-Path $repoRoot $expectedHooksPath
+$isRunningOnWindows = $PSVersionTable.PSEdition -eq "Desktop" -or
+    [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 
 function Test-Hooks {
     param([bool]$AllowChmod)
@@ -34,7 +36,7 @@ function Test-Hooks {
             continue
         }
 
-        if (-not $IsWindows -and $AllowChmod) {
+        if (-not $isRunningOnWindows -and $AllowChmod) {
             & chmod +x -- $hookPath
             if ($LASTEXITCODE -ne 0) {
                 throw "Falha ao aplicar chmod +x em $hookPath."

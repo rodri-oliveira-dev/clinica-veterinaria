@@ -43,13 +43,11 @@ internal static class MessageActivityFactory
             if (!string.IsNullOrWhiteSpace(context.CorrelationId))
             {
                 activity.SetTag(PropagationHeaderNames.CorrelationId, context.CorrelationId);
-                activity.SetBaggage(PropagationHeaderNames.CorrelationId, context.CorrelationId);
             }
 
             if (!string.IsNullOrWhiteSpace(context.TenantId))
             {
                 activity.SetTag(PropagationHeaderNames.TenantId, context.TenantId);
-                activity.SetBaggage(PropagationHeaderNames.TenantId, context.TenantId);
             }
         }
 

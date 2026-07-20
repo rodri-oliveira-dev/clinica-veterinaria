@@ -257,6 +257,104 @@ Separacao local/producao:
 - Producao nao deve depender do AppHost como runtime ou IaC obrigatoria.
 - PostgreSQL e Keycloak produtivos devem ser provisionados pela estrategia de infraestrutura propria do ambiente.
 
+## Ambiente local Docker Compose
+
+O Aspire continua sendo a experiencia principal de desenvolvimento local porque compoe recursos, injeta configuracao e integra com o Aspire Dashboard. O Docker Compose e uma alternativa explicita para validar a imagem da API, executar API/PostgreSQL/Keycloak totalmente em containers e rodar smoke tests em ambientes onde o AppHost nao sera usado.
+
+Arquivos:
+
+- `Dockerfile`: imagem da API em multi-stage build, runtime ASP.NET Core .NET 10, publish Release, usuario nao-root e healthcheck em `/health/ready`.
+- `compose.yaml`: stack local com API, PostgreSQL e Keycloak usando o realm versionado em `src/AppHost/PetShop.AppHost/keycloak/realms/petshop-local-realm.json`.
+- `.env.example`: valores locais descartaveis. Copie para `.env` somente se quiser sobrescrever portas, usuario ou senhas locais. Nao versione `.env`.
+
+Portas e credenciais locais padrao:
+
+| Recurso | URL/porta | Credencial local |
+| --- | --- | --- |
+| API | `http://localhost:5000` | JWT Bearer do Keycloak |
+| PostgreSQL | `localhost:5432` | `petshop` / `petshop-local-password` |
+| Keycloak | `http://localhost:8080` | admin `admin` / `admin-local-password` |
+| Usuario local | Keycloak realm `petshop-local` | `local.petshop.user` / `local-dev-password` |
+
+Comandos:
+
+```bash
+docker build -t petshop-api:local .
+docker compose config
+docker compose build
+docker compose up -d
+docker compose ps
+docker compose logs --no-color
+docker compose down
+docker compose down -v
+```
+
+Use `docker compose down -v` para remover os volumes nomeados e recriar PostgreSQL e Keycloak do zero. Sem `-v`, os volumes `petshop-postgres-data` e `keycloak-data` preservam dados locais entre reinicios.
+
+Migrations na stack Compose:
+
+- A API nao aplica migrations automaticamente no startup.
+- Para esta stack local, aplique migrations de forma explicita a partir do host com o SDK .NET:
+
+```bash
+dotnet tool restore
+
+ConnectionStrings__petshop="Host=localhost;Port=5432;Database=petshop;Username=petshop;Password=petshop-local-password" \
+dotnet ef database update \
+  --project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
+  --startup-project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
+  --context PetShopDbContext
+```
+
+Em PowerShell:
+
+```powershell
+$env:ConnectionStrings__petshop = "Host=localhost;Port=5432;Database=petshop;Username=petshop;Password=petshop-local-password"
+dotnet ef database update `
+  --project ./src/Apps/PetShop.Api/PetShop.Api.csproj `
+  --startup-project ./src/Apps/PetShop.Api/PetShop.Api.csproj `
+  --context PetShopDbContext
+```
+
+Token local pela stack Compose:
+
+```bash
+curl --request POST \
+  --url http://localhost:8080/realms/petshop-local/protocol/openid-connect/token \
+  --header "Content-Type: application/x-www-form-urlencoded" \
+  --data "grant_type=password" \
+  --data "client_id=petshop-api" \
+  --data "username=local.petshop.user" \
+  --data "password=local-dev-password"
+```
+
+Smoke test:
+
+```powershell
+./scripts/smoke-keycloak-auth.ps1 -ApiBaseUrl "http://localhost:5000" -KeycloakBaseUrl "http://localhost:8080"
+```
+
+Issuer interno/externo:
+
+- Clientes no host obtem tokens em `http://localhost:8080`.
+- A API dentro da rede Docker acessa o Keycloak por `http://keycloak:8080`.
+- O Keycloak do Compose usa `--hostname=http://localhost:8080` e `--hostname-backchannel-dynamic=true`.
+- A API valida `Authentication:Authority=http://localhost:8080/realms/petshop-local`, que corresponde ao `iss` do token, e busca metadados/JWKS por `Authentication:MetadataAddress=http://keycloak:8080/realms/petshop-local/.well-known/openid-configuration`.
+- A validacao de issuer continua habilitada; o endereco interno serve apenas para discovery/backchannel dentro do Compose.
+
+Observabilidade no Compose:
+
+- A API inicia sem collector OTLP.
+- Configure `OTEL_EXPORTER_OTLP_ENDPOINT` ou `OpenTelemetry__Otlp__Endpoint` quando houver collector externo.
+- O Compose nao sobe dashboard, collector ou backend APM.
+
+Troubleshooting:
+
+- Se a API ficar unhealthy, confira `docker compose logs --no-color api` e valide se migrations foram aplicadas quando a mudanca de schema exigir.
+- Se tokens forem rejeitados com `401`, confira se `iss` do token e `Authentication:Authority` continuam iguais a `http://localhost:8080/realms/petshop-local`.
+- Se o realm nao refletir alteracoes no JSON, execute `docker compose down -v` para remover o volume persistido do Keycloak e importar novamente.
+- Se portas `5000`, `5432` ou `8080` estiverem ocupadas, copie `.env.example` para `.env` e altere `API_PORT`, `POSTGRES_PORT` ou `KEYCLOAK_PORT`.
+
 ## Observabilidade
 
 A API registra OpenTelemetry para traces, metricas e logs com `service.name` estavel `PetShop.Api`.

@@ -26,6 +26,11 @@ internal static class SecurityServiceCollectionExtensions
             .AddJwtBearer(options =>
             {
                 options.Authority = authentication.ResolvedAuthority;
+                if (authentication.ResolvedMetadataAddress is not null)
+                {
+                    options.MetadataAddress = authentication.ResolvedMetadataAddress;
+                }
+
                 options.Audience = authentication.ResolvedAudience;
                 options.MapInboundClaims = false;
                 options.RequireHttpsMetadata = authentication.ResolveRequireHttpsMetadata(environment);

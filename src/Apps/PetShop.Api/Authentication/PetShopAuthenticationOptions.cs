@@ -6,6 +6,8 @@ internal sealed class PetShopAuthenticationOptions
 
     public string? Authority { get; set; }
 
+    public string? MetadataAddress { get; set; }
+
     public string? Audience { get; set; }
 
     public string? RoleClientId { get; set; }
@@ -15,6 +17,10 @@ internal sealed class PetShopAuthenticationOptions
     public bool? RequireHttpsMetadata { get; set; }
 
     public string ResolvedAuthority => Authority!.TrimEnd('/');
+
+    public string? ResolvedMetadataAddress => string.IsNullOrWhiteSpace(MetadataAddress)
+        ? null
+        : MetadataAddress.Trim();
 
     public string ResolvedAudience => Audience!.Trim();
 
@@ -57,6 +63,27 @@ internal sealed class PetShopAuthenticationOptions
         {
             throw new InvalidOperationException(
                 "Authentication authority must use HTTP or HTTPS.");
+        }
+
+        if (ResolvedMetadataAddress is not null)
+        {
+            if (!Uri.TryCreate(ResolvedMetadataAddress, UriKind.Absolute, out Uri? metadataUri))
+            {
+                throw new InvalidOperationException(
+                    $"Authentication metadata address '{ResolvedMetadataAddress}' must be an absolute URI.");
+            }
+
+            if (requireHttpsMetadata && metadataUri.Scheme != Uri.UriSchemeHttps)
+            {
+                throw new InvalidOperationException(
+                    "Authentication metadata address must use HTTPS when HTTPS metadata is required.");
+            }
+
+            if (metadataUri.Scheme != Uri.UriSchemeHttps && metadataUri.Scheme != Uri.UriSchemeHttp)
+            {
+                throw new InvalidOperationException(
+                    "Authentication metadata address must use HTTP or HTTPS.");
+            }
         }
     }
 

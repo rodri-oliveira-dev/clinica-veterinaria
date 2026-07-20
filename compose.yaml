@@ -1,0 +1,83 @@
+name: petshop-local
+
+services:
+  api:
+    image: petshop-api:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__petshop: Host=postgres;Port=5432;Database=${POSTGRES_DB:-petshop};Username=${POSTGRES_USER:-petshop};Password=${POSTGRES_PASSWORD:-petshop-local-password}
+      Authentication__Authority: http://localhost:${KEYCLOAK_PORT:-8080}/realms/${KEYCLOAK_REALM:-petshop-local}
+      Authentication__MetadataAddress: http://keycloak:8080/realms/${KEYCLOAK_REALM:-petshop-local}/.well-known/openid-configuration
+      Authentication__Audience: ${KEYCLOAK_CLIENT_ID:-petshop-api}
+      Authentication__RoleClientId: ${KEYCLOAK_CLIENT_ID:-petshop-api}
+      Authentication__RequiredRole: ${KEYCLOAK_REQUIRED_ROLE:-petshop.access}
+      Authentication__RequireHttpsMetadata: "false"
+      OpenTelemetry__Otlp__Endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    ports:
+      - "127.0.0.1:${API_PORT:-5000}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: "no"
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-petshop}
+      POSTGRES_USER: ${POSTGRES_USER:-petshop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-petshop-local-password}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - petshop-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-petshop} -d ${POSTGRES_DB:-petshop}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: "no"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.0
+    command:
+      - start-dev
+      - --import-realm
+      - --hostname=http://localhost:${KEYCLOAK_PORT:-8080}
+      - --hostname-backchannel-dynamic=true
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin-local-password}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./src/AppHost/PetShop.AppHost/keycloak/realms:/opt/keycloak/data/import:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bash -ec "{ printf 'HEAD /health/ready HTTP/1.0\r\n\r\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/127.0.0.1/9000"
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    restart: "no"
+
+volumes:
+  petshop-postgres-data:
+  keycloak-data:

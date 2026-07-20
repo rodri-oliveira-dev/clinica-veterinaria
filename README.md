@@ -2,7 +2,7 @@
 
 Backend inicial de uma plataforma SaaS multitenant para clinicas veterinarias, petshops e servicos para pets.
 
-O projeto nasce como um monolito modular em .NET 10 com um unico deploy. A entrega atual cria somente a fundacao tecnica minima: API HTTP, AppHost Aspire para composicao local, building blocks de observabilidade e testes de baseline. Modulos de negocio, PostgreSQL, Keycloak, autenticacao e multitenancy tecnico serao adicionados apenas quando houver uma fatia funcional concreta.
+O projeto nasce como um monolito modular em .NET 10 com um unico deploy. A entrega atual cria a fundacao tecnica minima: API HTTP, AppHost Aspire para composicao local com PostgreSQL e Keycloak, building blocks de observabilidade e testes de baseline. Modulos de negocio, EF Core, autenticacao JWT e multitenancy tecnico serao adicionados apenas quando houver uma fatia funcional concreta.
 
 ## Estrutura
 
@@ -23,7 +23,7 @@ tests/
 ## Projetos
 
 - `PetShop.Api`: ASP.NET Core API com endpoints minimos `/health` e `/diagnostics`.
-- `PetShop.AppHost`: composicao local Aspire contendo apenas a API.
+- `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
 
@@ -35,7 +35,7 @@ tests/
 - `CorrelationId` e independente de `TraceId`.
 - HTTP usa `X-Correlation-Id`.
 - `PetShop.Observability` nao depende de ASP.NET Core.
-- O AppHost e apenas composicao local; ele nao define banco, identidade, broker, cache ou gateway.
+- O AppHost e apenas composicao local; ele sobe PostgreSQL e Keycloak para desenvolvimento, mas nao define EF Core, realm, client, JWT, broker, cache ou gateway.
 
 As decisoes completas estao em:
 
@@ -45,6 +45,7 @@ As decisoes completas estao em:
 ## Requisitos
 
 - .NET SDK 10
+- Docker Desktop, Podman ou runtime OCI compativel para os containers locais do Aspire
 - Acesso ao NuGet.org para restore
 
 ## Comandos
@@ -68,10 +69,43 @@ Para executar a composicao local Aspire:
 dotnet run --project ./src/AppHost/PetShop.AppHost/PetShop.AppHost.csproj
 ```
 
+Esse comando inicia a API, o PostgreSQL e o Keycloak e disponibiliza o Aspire Dashboard. O endereco do dashboard aparece no console do AppHost durante a inicializacao.
+
+## Ambiente local Aspire
+
+Recursos locais:
+
+- `petshop-api`: API ASP.NET Core do monolito.
+- `postgres`: servidor PostgreSQL em container, com credenciais geradas pelo Aspire.
+- `petshop`: banco logico criado no PostgreSQL local e referenciado pela API.
+- `keycloak`: Keycloak em container, exposto em porta estavel `8080` para evitar instabilidade de cookies OIDC durante o desenvolvimento.
+
+O AppHost usa `WaitFor` para aguardar PostgreSQL e Keycloak antes de iniciar a API, e `WithReference` para disponibilizar as informacoes dos recursos para a API. Nesta entrega a API ainda nao consome o banco nem autentica via Keycloak; EF Core, realm, client e JWT permanecem fora do escopo.
+
+Volumes persistentes:
+
+- PostgreSQL usa volume Docker gerenciado pelo Aspire para preservar dados do servidor local.
+- Keycloak usa volume Docker gerenciado pelo Aspire para preservar dados e credenciais administrativas locais.
+- Nao versione nem copie os segredos gerados pelo Aspire. Eles ficam no secret store local do AppHost.
+
+Reset do ambiente local:
+
+1. Pare o AppHost.
+2. Remova os volumes do PostgreSQL e Keycloak pelo Docker Desktop/Podman ou pela CLI do runtime local.
+3. Execute novamente `dotnet run --project ./src/AppHost/PetShop.AppHost/PetShop.AppHost.csproj`.
+
+Faca esse reset tambem se os logs mostrarem falha de autenticacao no PostgreSQL ou Keycloak depois de uma interrupcao forcada ou regeneracao de secrets locais, pois os volumes preservam credenciais internas do container.
+
+Separacao local/producao:
+
+- Aspire e usado somente para composicao e observabilidade do ambiente local.
+- Producao nao deve depender do AppHost como runtime ou IaC obrigatoria.
+- PostgreSQL e Keycloak produtivos devem ser provisionados pela estrategia de infraestrutura propria do ambiente.
+
 ## Escopo ainda nao implementado
 
-- PostgreSQL e migrations.
-- Keycloak, JWT, autenticacao e autorizacao.
+- EF Core e migrations.
+- Realm, client, JWT, autenticacao e autorizacao.
 - Implementacao tecnica de multitenancy.
 - OpenTelemetry completo com exporter OTLP.
 - Modulos de negocio como cadastro, pets, agenda, atendimento ou cobranca.

@@ -119,6 +119,25 @@ Ainda nao existem entidades completas, tabelas funcionais, migrations, repositor
 - O conceito de tutor nao presume propriedade legal do animal.
 - Responsavel financeiro nao deve ser separado do tutor sem requisito de negocio.
 
+## Modelo inicial de Tutor
+
+O SDD 14 introduz `Tutor` como Aggregate Root inicial do modulo Cadastro de Tutores e Animais. O modelo permanece somente no Domain, sem EF Core, endpoints, DTOs HTTP, repositories ou eventos de dominio.
+
+Identidade e tenant sao imutaveis por instancia. O `TenantId` do dominio e um identificador forte local ao modulo; a conversao a partir da claim autenticada continua sendo responsabilidade futura da borda/Application, conforme a ADR-0001.
+
+Campos e regras iniciais:
+
+- `TutorId` e `TenantId` sao obrigatorios e baseados em `Guid`;
+- `NomeDoTutor` e obrigatorio e remove espacos externos;
+- `Cpf` e opcional, mas deve ter digitos verificadores validos quando informado;
+- `Email` e `Telefone` sao opcionais individualmente, mas o tutor deve possuir ao menos um contato operacional;
+- `Telefone` aceita DDD brasileiro com 10 ou 11 digitos, com formatacao comum e opcionalmente `+55`;
+- tutor nasce com `SituacaoDoTutor.Ativo`;
+- inativacao muda a situacao para inativo, registra `InativadoEm` e atualiza `AtualizadoEm`;
+- alteracoes de cadastro preservam identidade, tenant e `CriadoEm`, e atualizam `AtualizadoEm`.
+
+CPF, e-mail e telefone sao dados pessoais do tutor. O modelo nao registra logs nem eventos com documento completo nesta etapa. Finalidade, retencao, mascaramento em contratos HTTP e fluxos de direitos do titular continuam pendentes para os SDDs que criarem persistencia, API ou exportacao desses dados.
+
 ## Fluxos da Entrega 1
 
 Fluxos minimos de tutor:

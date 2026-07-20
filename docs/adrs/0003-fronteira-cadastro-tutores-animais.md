@@ -94,6 +94,8 @@ No SDD 15, o aggregate `Tutor` passou a ser persistido em PostgreSQL pela tabela
 
 No SDD 18, o aggregate `Animal` passou a ser persistido pela tabela `animais`, tambem owned por este modulo. Como Tutor e Animal permanecem no mesmo Bounded Context e no mesmo ownership, foi aceita uma foreign key fisica composta de `animais (tenant_id, tutor_responsavel_id)` para `tutores (tenant_id, id)`. A FK e deliberadamente composta com `tenant_id` para impedir vinculo cross-tenant no banco. Essa decisao nao cria contrato entre modulos, acesso a tabela de outro modulo, transferencia de responsabilidade, endpoint de animais, evento de integracao, broker ou cache.
 
+No SDD 20, a transferencia de responsabilidade do animal foi implementada dentro do mesmo modulo e do mesmo Bounded Context por endpoint explicito. A mudanca preserva `TutorResponsavel` como referencia por identidade, usa `versao` no `Animal` para concorrencia otimista e grava historico minimo em `historico_transferencias_animais` com `tenant_id`, IDs tecnicos, data, subject e motivo opcional. Essa decisao nao cria contrato entre modulos, evento de integracao, broker, cache, microsservico nem ownership separado para o vinculo.
+
 ## Relacao com codigo, testes e documentacao
 
 Esta ADR nao criou codigo de producao, migrations, endpoints ou testes quando foi aceita. O SDD 13 adicionou a fundacao de codigo e os testes arquiteturais da fronteira sem implementar funcionalidade de negocio.

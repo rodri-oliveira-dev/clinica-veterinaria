@@ -60,6 +60,9 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.True(paths.GetProperty("/animais").TryGetProperty("get", out JsonElement pesquisarAnimais));
         Assert.True(paths.GetProperty("/animais/{animalId}").TryGetProperty("get", out JsonElement consultarAnimal));
         Assert.True(paths.GetProperty("/animais/{animalId}").TryGetProperty("put", out JsonElement atualizarAnimal));
+        Assert.True(paths
+            .GetProperty("/animais/{animalId}/transferencias-de-responsabilidade")
+            .TryGetProperty("post", out JsonElement transferirResponsabilidade));
         Assert.True(paths.GetProperty("/animais/{animalId}/inativacao").TryGetProperty("post", out JsonElement inativarAnimal));
 
         AssertSecuredModuleOperation(cadastrarTutor);
@@ -71,6 +74,7 @@ public sealed class OpenApiContractTests : IDisposable
         AssertSecuredModuleOperation(pesquisarAnimais);
         AssertSecuredModuleOperation(consultarAnimal);
         AssertSecuredModuleOperation(atualizarAnimal);
+        AssertSecuredModuleOperation(transferirResponsabilidade);
         AssertSecuredModuleOperation(inativarAnimal);
         Assert.Contains(
             consultarTutor.GetProperty("parameters").EnumerateArray(),

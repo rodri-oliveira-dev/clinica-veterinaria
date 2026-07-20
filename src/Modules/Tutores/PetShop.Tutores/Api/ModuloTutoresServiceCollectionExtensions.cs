@@ -11,7 +11,8 @@ public static class ModuloTutoresServiceCollectionExtensions
 {
     public static IServiceCollection AddModuloTutores<TDbContext>(
         this IServiceCollection services,
-        Func<IServiceProvider, Guid?> obterTenantAtual)
+        Func<IServiceProvider, Guid?> obterTenantAtual,
+        Func<IServiceProvider, string?>? obterSubjectAtual = null)
         where TDbContext : DbContext
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -21,6 +22,8 @@ public static class ModuloTutoresServiceCollectionExtensions
         services.AddScoped<DbContext>(provider => provider.GetRequiredService<TDbContext>());
         services.AddScoped<IContextoTenantAtual>(provider =>
             new ContextoTenantAtualResolvido(obterTenantAtual(provider)));
+        services.AddScoped<IContextoUsuarioAtual>(provider =>
+            new ContextoUsuarioAtualResolvido(obterSubjectAtual?.Invoke(provider)));
         services.AddScoped<ITutoresRepository, TutoresRepository>();
         services.AddScoped<IAnimaisRepository, AnimaisRepository>();
         services.AddScoped<TutoresApplicationService>();
@@ -37,5 +40,15 @@ public static class ModuloTutoresServiceCollectionExtensions
         }
 
         public Guid? TenantId { get; }
+    }
+
+    private sealed class ContextoUsuarioAtualResolvido : IContextoUsuarioAtual
+    {
+        public ContextoUsuarioAtualResolvido(string? subject)
+        {
+            Subject = subject;
+        }
+
+        public string? Subject { get; }
     }
 }

@@ -10,8 +10,14 @@ internal interface IAnimaisRepository
 
     Task<Animal?> ObterPorIdSemTrackingAsync(AnimalId animalId, CancellationToken cancellationToken);
 
+    Task<Tutor?> ObterTutorResponsavelPorIdAsync(TutorId tutorId, CancellationToken cancellationToken);
+
     Task<bool> ExisteTutorResponsavelAsync(
         TutorResponsavel tutorResponsavel,
+        CancellationToken cancellationToken);
+
+    Task AdicionarTransferenciaAsync(
+        TransferenciaDeResponsabilidadeDoAnimal transferencia,
         CancellationToken cancellationToken);
 
     Task<PesquisaDeAnimais> PesquisarAsync(

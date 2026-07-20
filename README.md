@@ -27,7 +27,7 @@ tests/
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
-- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui os aggregates `Tutor` e `Animal` persistidos em PostgreSQL, com endpoints HTTP para cadastro, consulta, atualizacao, pesquisa e inativacao. Ainda nao ha transferencia de responsabilidade ou repository generico.
+- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui os aggregates `Tutor` e `Animal` persistidos em PostgreSQL, com endpoints HTTP para cadastro, consulta, atualizacao, pesquisa, inativacao e transferencia explicita de responsabilidade do animal. Ainda nao ha repository generico.
 
 ## Decisoes preservadas
 
@@ -159,9 +159,10 @@ Tabela funcional introduzida:
 - `documento` armazena CPF normalizado quando informado.
 - A unicidade de CPF e local ao tenant pelo indice unico `(tenant_id, documento)`, permitindo o mesmo CPF em tenants diferentes.
 - Constraints no banco impedem `id` e `tenant_id` vazios, situacao fora do dominio conhecido, documento/telefone com tamanho invalido e tutor sem contato operacional.
-- `animais`: possui `id`, `tenant_id NOT NULL`, `nome`, `especie`, `raca`, `sexo`, `data_de_nascimento`, `cor_ou_pelagem`, `observacao_cadastral`, `situacao`, `tutor_responsavel_id`, `criado_em`, `atualizado_em` e `inativado_em`.
+- `animais`: possui `id`, `tenant_id NOT NULL`, `nome`, `especie`, `raca`, `sexo`, `data_de_nascimento`, `cor_ou_pelagem`, `observacao_cadastral`, `situacao`, `tutor_responsavel_id`, `versao`, `criado_em`, `atualizado_em` e `inativado_em`.
 - O vinculo de animal com tutor usa foreign key composta `(tenant_id, tutor_responsavel_id)` para `tutores (tenant_id, id)`, porque os dois aggregates pertencem ao mesmo modulo owner nesta fase.
 - Constraints no banco impedem `id`, `tenant_id` e `tutor_responsavel_id` vazios, textos obrigatorios em branco, sexo/situacao fora do dominio conhecido e vinculo com tutor inexistente ou de outro tenant.
+- `historico_transferencias_animais`: possui `id`, `tenant_id NOT NULL`, `animal_id`, `tutor_anterior_id`, `tutor_novo_id`, `realizada_em`, `subject` e `motivo`. A tabela registra a trilha minima da transferencia de responsabilidade, sem token, claims completas, CPF, e-mail ou telefone.
 
 Estrategia multitenant da persistencia de tutores:
 
@@ -177,6 +178,7 @@ Estrategia multitenant da persistencia de animais:
 - `SaveChanges` bloqueia inclusao, alteracao ou exclusao de animais quando nao houver tenant resolvido ou quando o tenant da entidade divergir do tenant autenticado.
 - A Application valida o tutor responsavel por consulta filtrada no tenant atual; tutor de outro tenant se comporta como inexistente.
 - A FK composta no banco protege o mesmo limite caso uma escrita tente associar animal a tutor inexistente ou de outro tenant.
+- A transferencia de responsabilidade usa endpoint explicito, exige `versao` do animal para proteger contra lost update e grava historico append-only limitado ao tenant atual.
 
 Comandos de migrations:
 
@@ -267,9 +269,10 @@ Endpoints funcionais de Animais:
 | `GET` | `/animais/{animalId}` | Consulta animal visivel no tenant atual. |
 | `PUT` | `/animais/{animalId}` | Atualiza cadastro do animal pela rota, sem trocar tutor responsavel nem aceitar `tenant_id` ou `id` no body como autoridade. |
 | `GET` | `/animais` | Pesquisa animais com `pagina`, `tamanhoPagina`, `nome`, `tutorResponsavelId`, `especie`, `situacao`, `ordenarPor` e `direcao`. |
+| `POST` | `/animais/{animalId}/transferencias-de-responsabilidade` | Transfere explicitamente a responsabilidade do animal para outro tutor ativo do tenant atual, usando `novoTutorId`, `versao` e motivo opcional. |
 | `POST` | `/animais/{animalId}/inativacao` | Inativa animal sem hard delete. |
 
-Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Tutor responsavel inexistente ou pertencente a outro tenant retorna `404`. Dados de outro tenant retornam `404` nos fluxos por identificador. As respostas de animais retornam somente `tutorResponsavelId`, sem duplicar dados pessoais do tutor.
+Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Tutor responsavel inexistente ou pertencente a outro tenant retorna `404`. Dados de outro tenant retornam `404` nos fluxos por identificador. As respostas de animais retornam `tutorResponsavelId` e `versao`, sem duplicar dados pessoais do tutor.
 
 Health checks:
 
@@ -483,7 +486,6 @@ Cobertura e usada como sinal de risco. Nao ha threshold artificial nesta entrega
 
 ## Escopo ainda nao implementado
 
-- Transferencia de responsabilidade do animal.
 - Row-Level Security.
 - Outros modulos de negocio como agenda, atendimento ou cobranca.
 - Broker, Redis, API Gateway, microsservicos ou multiplos bancos.

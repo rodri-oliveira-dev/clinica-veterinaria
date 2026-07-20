@@ -19,12 +19,20 @@ builder.Services.AddPetShopObservabilityPropagation();
 builder.AddPetShopOpenTelemetry();
 builder.Services.AddPetShopApiSecurity(builder.Configuration, builder.Environment);
 builder.Services.AddPetShopTenantContext();
-builder.Services.AddModuloTutores<PetShopDbContext>(serviceProvider =>
-{
-    ITenantContext tenantContext = serviceProvider.GetRequiredService<ITenantContext>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddModuloTutores<PetShopDbContext>(
+    serviceProvider =>
+    {
+        ITenantContext tenantContext = serviceProvider.GetRequiredService<ITenantContext>();
 
-    return tenantContext.IsResolved ? tenantContext.TenantId.Value : null;
-});
+        return tenantContext.IsResolved ? tenantContext.TenantId.Value : null;
+    },
+    serviceProvider =>
+    {
+        IHttpContextAccessor httpContextAccessor = serviceProvider.GetRequiredService<IHttpContextAccessor>();
+
+        return httpContextAccessor.HttpContext?.User.FindFirst("sub")?.Value;
+    });
 
 var app = builder.Build();
 

@@ -31,6 +31,7 @@ public sealed class AnimalTests
         Assert.True(animal.EstaAtivo);
         Assert.Equal(CriadoEm, animal.CriadoEm);
         Assert.Equal(CriadoEm, animal.AtualizadoEm);
+        Assert.Equal(1, animal.Versao);
         Assert.Null(animal.InativadoEm);
     }
 
@@ -140,6 +141,7 @@ public sealed class AnimalTests
         Assert.Equal(CriadoEm, animal.CriadoEm);
         Assert.Equal(AnimalId, animal.Id);
         Assert.Equal(TenantA, animal.TenantId);
+        Assert.Equal(2, animal.Versao);
     }
 
     [Fact]
@@ -176,6 +178,7 @@ public sealed class AnimalTests
         Assert.Equal(SituacaoDoAnimal.Inativo, animal.Situacao);
         Assert.Equal(inativadoEm, animal.InativadoEm);
         Assert.Equal(inativadoEm, animal.AtualizadoEm);
+        Assert.Equal(2, animal.Versao);
     }
 
     [Fact]
@@ -188,6 +191,32 @@ public sealed class AnimalTests
             animal.Inativar(CriadoEm.AddDays(2)));
 
         Assert.Contains("ja esta inativo", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TransferirResponsabilidade_ComNovoTutor_AtualizaTutorTimestampEVersao()
+    {
+        Animal animal = CriarAnimal();
+        DateTimeOffset transferidoEm = CriadoEm.AddHours(3);
+
+        animal.TransferirResponsabilidade(TutorResponsavel.Criar(OutroTutorId), transferidoEm);
+
+        Assert.Equal(OutroTutorId, animal.TutorResponsavel.TutorId);
+        Assert.Equal(transferidoEm, animal.AtualizadoEm);
+        Assert.Equal(2, animal.Versao);
+    }
+
+    [Fact]
+    public void TransferirResponsabilidade_ComMesmoTutor_Rejeita()
+    {
+        Animal animal = CriarAnimal();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            animal.TransferirResponsabilidade(TutorResponsavel.Criar(TutorId), CriadoEm.AddHours(3)));
+
+        Assert.Contains("diferente", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(TutorId, animal.TutorResponsavel.TutorId);
+        Assert.Equal(1, animal.Versao);
     }
 
     [Fact]

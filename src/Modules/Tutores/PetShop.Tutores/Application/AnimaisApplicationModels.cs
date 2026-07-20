@@ -22,6 +22,12 @@ internal sealed record AtualizarAnimalCommand(
     string? CorOuPelagem,
     string? ObservacaoCadastral);
 
+internal sealed record TransferirResponsabilidadeDoAnimalCommand(
+    Guid AnimalId,
+    Guid NovoTutorId,
+    int Versao,
+    string? Motivo);
+
 internal sealed record PesquisarAnimaisQuery(
     int? Pagina,
     int? TamanhoPagina,
@@ -45,6 +51,7 @@ internal sealed record AnimalDetalhe(
     string Situacao,
     DateTimeOffset CriadoEm,
     DateTimeOffset AtualizadoEm,
+    int Versao,
     DateTimeOffset? InativadoEm);
 
 internal sealed record AnimalResumo(

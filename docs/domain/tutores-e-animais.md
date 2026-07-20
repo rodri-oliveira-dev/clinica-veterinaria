@@ -114,6 +114,8 @@ O SDD 17 introduz o modelo de dominio inicial de `Animal`, ainda sem persistenci
 
 O SDD 18 persiste `Animal` em PostgreSQL no mesmo modulo e cria o vinculo inicial com `Tutor` por `TutorResponsavel`.
 
+O SDD 20 adiciona o caso de uso explicito `TransferirResponsabilidadeDoAnimal`, preservando o mesmo Bounded Context e o mesmo ownership de dados.
+
 ## Invariantes conhecidas
 
 - Tutor, animal e vinculo sempre pertencem a exatamente um tenant autenticado.
@@ -222,6 +224,7 @@ Colunas:
 - `observacao_cadastral`;
 - `situacao`;
 - `tutor_responsavel_id`;
+- `versao`;
 - `criado_em`;
 - `atualizado_em`;
 - `inativado_em`.
@@ -234,9 +237,44 @@ Decisoes:
 - Essa FK composta impede associacao cross-tenant no banco. Um tutor de outro tenant nao satisfaz a constraint e, na Application, a consulta filtrada por tenant o trata como inexistente.
 - A tabela `tutores` recebeu a alternate key `(tenant_id, id)` apenas para suportar a FK composta; o ownership continua no mesmo modulo.
 - `AnimalId`, `TenantId`, `TutorId`, `NomeDoAnimal`, `Especie`, `Raca`, `DataDeNascimento`, `CorOuPelagem`, `ObservacaoCadastral`, `SexoDoAnimal` e `SituacaoDoAnimal` usam conversoes EF Core no mapeamento do modulo.
+- `versao` e usada como token de concorrencia otimista para alteracoes do animal.
 - Consultas comuns usam query filter por tenant atual.
 - Escritas usam guarda de `SaveChanges` para exigir tenant resolvido e impedir alteracao de animal pertencente a outro tenant.
-- Nao foram criados endpoints de animais, transferencia de responsabilidade, cache, broker, duplicacao de dados completos do tutor nem contrato entre modulos.
+- Nao foram criados cache, broker, duplicacao de dados completos do tutor nem contrato entre modulos.
+
+## Transferencia de responsabilidade do Animal
+
+O SDD 20 implementa `TransferirResponsabilidadeDoAnimal` como caso de uso explicito. A transferencia nao acontece pelo endpoint generico de atualizacao do animal.
+
+Rota:
+
+| Metodo | Rota | Uso |
+| --- | --- | --- |
+| `POST` | `/animais/{animalId}/transferencias-de-responsabilidade` | Transfere o animal para outro tutor responsavel do mesmo tenant. |
+
+Request:
+
+- `novoTutorId`;
+- `versao`;
+- `motivo`, opcional.
+
+Regras:
+
+- `animalId` vem da rota;
+- o tenant vem exclusivamente da claim validada;
+- o novo tutor deve existir no tenant atual;
+- dados de outro tenant se comportam como inexistentes;
+- o novo tutor deve estar ativo;
+- o novo tutor deve ser diferente do tutor atual;
+- `versao` deve corresponder a versao atual do animal, protegendo contra lost update;
+- `PUT /animais/{animalId}` continua preservando `tutorResponsavelId`.
+
+Historico:
+
+- a tabela `historico_transferencias_animais` registra `tenant_id`, `animal_id`, `tutor_anterior_id`, `tutor_novo_id`, `realizada_em`, `subject` e `motivo` opcional;
+- o registro e append-only nos fluxos comuns;
+- nao sao registrados token, claims completas, CPF, e-mail, telefone ou nome do tutor;
+- o historico usa FKs compostas com `tenant_id` para impedir associacao cross-tenant.
 
 ## API de Tutor
 
@@ -264,7 +302,7 @@ Pesquisa:
 
 ## API de Animal
 
-Rotas implementadas no SDD 19:
+Rotas implementadas ate o SDD 20:
 
 | Metodo | Rota | Uso |
 | --- | --- | --- |
@@ -272,6 +310,7 @@ Rotas implementadas no SDD 19:
 | `GET` | `/animais/{animalId}` | `ConsultarAnimalPorId`; outro tenant recebe `404`. |
 | `PUT` | `/animais/{animalId}` | `AtualizarAnimal`; `animalId` vem da rota, o tenant vem da claim validada e o tutor responsavel nao e alterado. |
 | `GET` | `/animais` | `PesquisarAnimais`; suporta pagina limitada, nome, tutor responsavel, especie, situacao e ordenacao estavel. |
+| `POST` | `/animais/{animalId}/transferencias-de-responsabilidade` | `TransferirResponsabilidadeDoAnimal`; exige novo tutor ativo do mesmo tenant e versao atual do animal. |
 | `POST` | `/animais/{animalId}/inativacao` | `InativarAnimal`; nao realiza hard delete. |
 
 Contratos HTTP sao separados do Domain e nao expoem entidades de dominio ou persistencia. Requests de animais nao aceitam `tenant_id`, `id` nem troca de `tutorResponsavelId` na atualizacao como autoridade. Todos os endpoints exigem JWT Bearer com `tenant_id` valido e role minima `petshop.access`.

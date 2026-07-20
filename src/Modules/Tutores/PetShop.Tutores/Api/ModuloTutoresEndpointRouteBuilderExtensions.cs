@@ -327,13 +327,75 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                     {
                         return AnimalNaoEncontrado();
                     }
+                    catch (ConflitoDeConcorrenciaDoAnimalException)
+                    {
+                        return ConflitoDeConcorrenciaDoAnimal();
+                    }
                 })
             .WithName("AtualizarAnimal")
             .Produces<AnimalResponse>()
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        animais.MapPost(
+                "/{animalId:guid}/transferencias-de-responsabilidade",
+                async (
+                    Guid animalId,
+                    TransferirResponsabilidadeDoAnimalRequest request,
+                    AnimaisApplicationService animaisService,
+                    CancellationToken cancellationToken) =>
+                {
+                    try
+                    {
+                        AnimalDetalhe animal = await animaisService.TransferirResponsabilidadeAsync(
+                            new TransferirResponsabilidadeDoAnimalCommand(
+                                animalId,
+                                request.NovoTutorId,
+                                request.Versao,
+                                request.Motivo),
+                            cancellationToken);
+
+                        return Results.Ok(AnimalResponse.From(animal));
+                    }
+                    catch (EntradaInvalidaException ex)
+                    {
+                        return EntradaInvalida(ex);
+                    }
+                    catch (AnimalNaoEncontradoException)
+                    {
+                        return AnimalNaoEncontrado();
+                    }
+                    catch (TutorResponsavelNaoEncontradoException)
+                    {
+                        return TutorResponsavelNaoEncontrado();
+                    }
+                    catch (TutorResponsavelInativoException)
+                    {
+                        return TutorResponsavelInativo();
+                    }
+                    catch (MesmoTutorResponsavelException)
+                    {
+                        return MesmoTutorResponsavel();
+                    }
+                    catch (ConflitoDeConcorrenciaDoAnimalException)
+                    {
+                        return ConflitoDeConcorrenciaDoAnimal();
+                    }
+                    catch (SubjectAutenticadoNaoEncontradoException)
+                    {
+                        return SubjectAutenticadoNaoEncontrado();
+                    }
+                })
+            .WithName("TransferirResponsabilidadeDoAnimal")
+            .Produces<AnimalResponse>()
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         animais.MapGet(
                 string.Empty,
@@ -405,6 +467,10 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                             detail: "O animal informado ja esta inativo.",
                             type: "urn:petshop:error:resource.conflict");
                     }
+                    catch (ConflitoDeConcorrenciaDoAnimalException)
+                    {
+                        return ConflitoDeConcorrenciaDoAnimal();
+                    }
                 })
             .WithName("InativarAnimal")
             .Produces<AnimalResponse>()
@@ -452,6 +518,34 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
             title: "Tutor responsavel nao encontrado.",
             detail: "O tutor responsavel informado nao existe ou nao esta visivel no tenant atual.",
             type: "urn:petshop:error:resource.not_found");
+
+    private static IResult TutorResponsavelInativo() =>
+        Results.Problem(
+            statusCode: StatusCodes.Status409Conflict,
+            title: "Tutor responsavel inativo.",
+            detail: "O novo tutor responsavel informado esta inativo.",
+            type: "urn:petshop:error:resource.conflict");
+
+    private static IResult MesmoTutorResponsavel() =>
+        Results.Problem(
+            statusCode: StatusCodes.Status409Conflict,
+            title: "Tutor responsavel inalterado.",
+            detail: "O novo tutor responsavel deve ser diferente do tutor atual.",
+            type: "urn:petshop:error:resource.conflict");
+
+    private static IResult ConflitoDeConcorrenciaDoAnimal() =>
+        Results.Problem(
+            statusCode: StatusCodes.Status409Conflict,
+            title: "Versao do animal desatualizada.",
+            detail: "Recarregue o animal e tente novamente com a versao atual.",
+            type: "urn:petshop:error:resource.conflict");
+
+    private static IResult SubjectAutenticadoNaoEncontrado() =>
+        Results.Problem(
+            statusCode: StatusCodes.Status403Forbidden,
+            title: "Subject autenticado obrigatorio.",
+            detail: "A identidade autenticada deve possuir subject para registrar a transferencia.",
+            type: "urn:petshop:error:auth.forbidden");
 
     private sealed class CadastrarTutorRequest
     {
@@ -509,6 +603,15 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
         public string? CorOuPelagem { get; init; }
 
         public string? ObservacaoCadastral { get; init; }
+    }
+
+    private sealed class TransferirResponsabilidadeDoAnimalRequest
+    {
+        public Guid NovoTutorId { get; init; }
+
+        public int Versao { get; init; }
+
+        public string? Motivo { get; init; }
     }
 
     private sealed record TutorResponse(
@@ -576,6 +679,7 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
         string Situacao,
         DateTimeOffset CriadoEm,
         DateTimeOffset AtualizadoEm,
+        int Versao,
         DateTimeOffset? InativadoEm)
     {
         public static AnimalResponse From(AnimalDetalhe animal) =>
@@ -592,6 +696,7 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                 animal.Situacao,
                 animal.CriadoEm,
                 animal.AtualizadoEm,
+                animal.Versao,
                 animal.InativadoEm);
     }
 

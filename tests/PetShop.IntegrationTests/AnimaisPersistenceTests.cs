@@ -88,6 +88,7 @@ public sealed class AnimaisPersistenceTests : IClassFixture<PostgreSqlFixture>
         await using PetShopDbContext dbContext = _postgresql.CreateDbContext(TenantA);
         var service = new AnimaisApplicationService(
             new ContextoTenantTeste(TenantA),
+            new ContextoUsuarioTeste(),
             new AnimaisRepository(dbContext),
             new FixedTimeProvider(CriadoEm));
 
@@ -123,6 +124,7 @@ public sealed class AnimaisPersistenceTests : IClassFixture<PostgreSqlFixture>
         await using PetShopDbContext dbContext = _postgresql.CreateDbContext(TenantA);
         var service = new AnimaisApplicationService(
             new ContextoTenantTeste(TenantA),
+            new ContextoUsuarioTeste(),
             new AnimaisRepository(dbContext),
             new FixedTimeProvider(CriadoEm));
 
@@ -429,6 +431,11 @@ public sealed class AnimaisPersistenceTests : IClassFixture<PostgreSqlFixture>
         }
 
         public Guid? TenantId { get; }
+    }
+
+    private sealed class ContextoUsuarioTeste : IContextoUsuarioAtual
+    {
+        public string? Subject => "integration-test-subject";
     }
 
     private sealed class FixedTimeProvider : TimeProvider

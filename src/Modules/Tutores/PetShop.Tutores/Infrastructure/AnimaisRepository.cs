@@ -30,11 +30,24 @@ internal sealed class AnimaisRepository : IAnimaisRepository
             .AsNoTracking()
             .SingleOrDefaultAsync(animal => animal.Id == animalId, cancellationToken);
 
+    public Task<Tutor?> ObterTutorResponsavelPorIdAsync(TutorId tutorId, CancellationToken cancellationToken) =>
+        _dbContext.Set<Tutor>()
+            .SingleOrDefaultAsync(tutor => tutor.Id == tutorId, cancellationToken);
+
     public Task<bool> ExisteTutorResponsavelAsync(
         TutorResponsavel tutorResponsavel,
         CancellationToken cancellationToken) =>
         _dbContext.Set<Tutor>()
             .AnyAsync(tutor => tutor.Id == TutorId.Criar(tutorResponsavel.TutorId), cancellationToken);
+
+    public Task AdicionarTransferenciaAsync(
+        TransferenciaDeResponsabilidadeDoAnimal transferencia,
+        CancellationToken cancellationToken)
+    {
+        _dbContext.Set<TransferenciaDeResponsabilidadeDoAnimal>().Add(transferencia);
+
+        return Task.CompletedTask;
+    }
 
     public async Task<PesquisaDeAnimais> PesquisarAsync(
         FiltrosDePesquisaDeAnimais filtros,
@@ -88,8 +101,17 @@ internal sealed class AnimaisRepository : IAnimaisRepository
             total);
     }
 
-    public Task SalvarAsync(CancellationToken cancellationToken) =>
-        _dbContext.SaveChangesAsync(cancellationToken);
+    public async Task SalvarAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflitoDeConcorrenciaDoAnimalException();
+        }
+    }
 
     private static IOrderedEnumerable<Animal> Ordenar(
         IEnumerable<Animal> query,

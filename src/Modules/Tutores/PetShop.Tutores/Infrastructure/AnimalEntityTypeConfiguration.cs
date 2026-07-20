@@ -58,6 +58,9 @@ internal sealed class AnimalEntityTypeConfiguration : IEntityTypeConfiguration<A
 
         builder.HasKey(animal => animal.Id);
 
+        builder.HasAlternateKey(animal => new { animal.TenantId, animal.Id })
+            .HasName("ak_animais_tenant_id_id");
+
         builder.Property(animal => animal.Id)
             .HasColumnName("id")
             .HasConversion(
@@ -131,6 +134,12 @@ internal sealed class AnimalEntityTypeConfiguration : IEntityTypeConfiguration<A
             .HasConversion(
                 tutorId => tutorId.Valor,
                 valor => TutorId.Criar(valor))
+            .IsRequired();
+
+        builder.Property(animal => animal.Versao)
+            .HasColumnName("versao")
+            .HasDefaultValue(1)
+            .IsConcurrencyToken()
             .IsRequired();
 
         builder.Property(animal => animal.CriadoEm)

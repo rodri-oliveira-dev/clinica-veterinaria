@@ -9,15 +9,18 @@ internal sealed class AnimaisApplicationService
     public const int TamanhoPaginaMaximo = 100;
 
     private readonly IContextoTenantAtual _contextoTenantAtual;
+    private readonly IContextoUsuarioAtual _contextoUsuarioAtual;
     private readonly IAnimaisRepository _repository;
     private readonly TimeProvider _timeProvider;
 
     public AnimaisApplicationService(
         IContextoTenantAtual contextoTenantAtual,
+        IContextoUsuarioAtual contextoUsuarioAtual,
         IAnimaisRepository repository,
         TimeProvider timeProvider)
     {
         _contextoTenantAtual = contextoTenantAtual;
+        _contextoUsuarioAtual = contextoUsuarioAtual;
         _repository = repository;
         _timeProvider = timeProvider;
     }
@@ -112,6 +115,60 @@ internal sealed class AnimaisApplicationService
         return _repository.PesquisarAsync(filtros, cancellationToken);
     }
 
+    public async Task<AnimalDetalhe> TransferirResponsabilidadeAsync(
+        TransferirResponsabilidadeDoAnimalCommand command,
+        CancellationToken cancellationToken)
+    {
+        AnimalId animalId = ValidarAnimalId(command.AnimalId);
+        TutorId novoTutorId = ValidarTutorId(command.NovoTutorId, "novoTutorId");
+        ValidarVersao(command.Versao);
+
+        Animal animal = await ObterAnimalOuFalharAsync(animalId, cancellationToken);
+        if (animal.Versao != command.Versao)
+        {
+            throw new ConflitoDeConcorrenciaDoAnimalException();
+        }
+
+        Tutor? novoTutor = await _repository.ObterTutorResponsavelPorIdAsync(novoTutorId, cancellationToken);
+        if (novoTutor is null)
+        {
+            throw new TutorResponsavelNaoEncontradoException();
+        }
+
+        if (!novoTutor.EstaAtivo)
+        {
+            throw new TutorResponsavelInativoException();
+        }
+
+        TutorId tutorAnteriorId = animal.TutorResponsavelId;
+        DateTimeOffset agora = _timeProvider.GetUtcNow();
+
+        try
+        {
+            animal.TransferirResponsabilidade(TutorResponsavel.Criar(novoTutor.Id.Valor), agora);
+        }
+        catch (InvalidOperationException)
+        {
+            throw new MesmoTutorResponsavelException();
+        }
+
+        await _repository.AdicionarTransferenciaAsync(
+            TransferenciaDeResponsabilidadeDoAnimal.Registrar(
+                Guid.NewGuid(),
+                animal.TenantId,
+                animal.Id,
+                tutorAnteriorId,
+                novoTutor.Id,
+                agora,
+                ObterSubjectAtual(),
+                command.Motivo),
+            cancellationToken);
+
+        await _repository.SalvarAsync(cancellationToken);
+
+        return MapearDetalhe(animal);
+    }
+
     public async Task<AnimalDetalhe> InativarAsync(
         Guid animalId,
         CancellationToken cancellationToken)
@@ -180,6 +237,42 @@ internal sealed class AnimaisApplicationService
                 ["tutorResponsavelId"] = [ex.Message]
             });
         }
+    }
+
+    private static TutorId ValidarTutorId(Guid tutorId, string campo)
+    {
+        try
+        {
+            return TutorId.Criar(tutorId);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new EntradaInvalidaException(new Dictionary<string, string[]>
+            {
+                [campo] = [ex.Message]
+            });
+        }
+    }
+
+    private static void ValidarVersao(int versao)
+    {
+        if (versao < 1)
+        {
+            throw new EntradaInvalidaException(new Dictionary<string, string[]>
+            {
+                ["versao"] = ["A versao do animal deve ser maior ou igual a 1."]
+            });
+        }
+    }
+
+    private string ObterSubjectAtual()
+    {
+        if (string.IsNullOrWhiteSpace(_contextoUsuarioAtual.Subject))
+        {
+            throw new SubjectAutenticadoNaoEncontradoException();
+        }
+
+        return _contextoUsuarioAtual.Subject.Trim();
     }
 
     private DadosDoAnimal ValidarDadosDoAnimal(
@@ -409,6 +502,7 @@ internal sealed class AnimaisApplicationService
             MapearSituacao(animal.Situacao),
             animal.CriadoEm,
             animal.AtualizadoEm,
+            animal.Versao,
             animal.InativadoEm);
 
     private static string MapearSexo(SexoDoAnimal sexo) =>

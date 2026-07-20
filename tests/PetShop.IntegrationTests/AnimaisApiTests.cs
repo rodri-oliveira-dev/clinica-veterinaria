@@ -6,9 +6,12 @@ using System.Text;
 using System.Text.Json;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+
+using PetShop.Tutores.Domain;
 
 namespace PetShop.IntegrationTests;
 
@@ -209,6 +212,146 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
     }
 
     [Fact]
+    public async Task TransferirResponsabilidade_ComDadosValidos_AtualizaTutorEVersaoERegistraHistorico()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient client = CriarClienteAutorizado(TenantA);
+        Guid tutorAnteriorId = await CadastrarTutorELerIdAsync(client, "Maria Oliveira", "529.982.247-25");
+        Guid tutorNovoId = await CadastrarTutorELerIdAsync(client, "Bruna Lima", "123.456.789-09");
+        Guid animalId = await CadastrarAnimalELerIdAsync(client, tutorAnteriorId, "Luna", "Canina");
+        int versao = await ConsultarVersaoAnimalAsync(client, animalId);
+
+        using HttpResponseMessage response = await TransferirResponsabilidadeAsync(
+            client,
+            animalId,
+            tutorNovoId,
+            versao,
+            " Mudanca solicitada pelo tutor ");
+
+        await AssertStatusCodeAsync(HttpStatusCode.OK, response);
+        JsonElement animal = await ReadJsonAsync(response);
+        Assert.Equal(animalId, animal.GetProperty("animalId").GetGuid());
+        Assert.Equal(tutorNovoId, animal.GetProperty("tutorResponsavelId").GetGuid());
+        Assert.Equal(versao + 1, animal.GetProperty("versao").GetInt32());
+        Assert.False(animal.TryGetProperty("tenantId", out _));
+
+        await using var dbContext = _postgresql.CreateDbContext(Guid.Parse(TenantA));
+        TransferenciaDeResponsabilidadeDoAnimal historico = await dbContext
+            .Set<TransferenciaDeResponsabilidadeDoAnimal>()
+            .SingleAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(Guid.Parse(TenantA), historico.TenantId.Valor);
+        Assert.Equal(animalId, historico.AnimalId.Valor);
+        Assert.Equal(tutorAnteriorId, historico.TutorAnteriorId.Valor);
+        Assert.Equal(tutorNovoId, historico.TutorNovoId.Valor);
+        Assert.Equal("local-petshop-user", historico.Subject);
+        Assert.Equal("Mudanca solicitada pelo tutor", historico.Motivo);
+    }
+
+    [Fact]
+    public async Task TransferirResponsabilidade_ComTutorInativo_RetornaConflict()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient client = CriarClienteAutorizado(TenantA);
+        Guid tutorAnteriorId = await CadastrarTutorELerIdAsync(client, "Maria Oliveira", "529.982.247-25");
+        Guid tutorInativoId = await CadastrarTutorELerIdAsync(client, "Bruna Lima", "123.456.789-09");
+        Guid animalId = await CadastrarAnimalELerIdAsync(client, tutorAnteriorId, "Luna", "Canina");
+        int versao = await ConsultarVersaoAnimalAsync(client, animalId);
+
+        using HttpResponseMessage inativacao = await client.PostAsync(
+            $"/tutores/{tutorInativoId:D}/inativacao",
+            content: null,
+            TestContext.Current.CancellationToken);
+        await AssertStatusCodeAsync(HttpStatusCode.OK, inativacao);
+
+        using HttpResponseMessage response = await TransferirResponsabilidadeAsync(
+            client,
+            animalId,
+            tutorInativoId,
+            versao);
+
+        await AssertStatusCodeAsync(HttpStatusCode.Conflict, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "resource.conflict");
+    }
+
+    [Fact]
+    public async Task TransferirResponsabilidade_ComMesmoTutor_RetornaConflict()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient client = CriarClienteAutorizado(TenantA);
+        Guid tutorId = await CadastrarTutorELerIdAsync(client, "Maria Oliveira", "529.982.247-25");
+        Guid animalId = await CadastrarAnimalELerIdAsync(client, tutorId, "Luna", "Canina");
+        int versao = await ConsultarVersaoAnimalAsync(client, animalId);
+
+        using HttpResponseMessage response = await TransferirResponsabilidadeAsync(
+            client,
+            animalId,
+            tutorId,
+            versao);
+
+        await AssertStatusCodeAsync(HttpStatusCode.Conflict, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "resource.conflict");
+    }
+
+    [Fact]
+    public async Task TransferirResponsabilidade_ComDadosDeOutroTenant_RetornaNotFound()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient tenantA = CriarClienteAutorizado(TenantA);
+        using HttpClient tenantB = CriarClienteAutorizado(TenantB);
+        Guid tutorA = await CadastrarTutorELerIdAsync(tenantA, "Maria Oliveira", "529.982.247-25");
+        Guid tutorB = await CadastrarTutorELerIdAsync(tenantB, "Ana Souza", "987.654.321-00");
+        Guid animalA = await CadastrarAnimalELerIdAsync(tenantA, tutorA, "Luna", "Canina");
+        int versao = await ConsultarVersaoAnimalAsync(tenantA, animalA);
+
+        using HttpResponseMessage tutorCrossTenant = await TransferirResponsabilidadeAsync(
+            tenantA,
+            animalA,
+            tutorB,
+            versao);
+
+        await AssertStatusCodeAsync(HttpStatusCode.NotFound, tutorCrossTenant);
+        await AssertProblemDetailsAsync(tutorCrossTenant, HttpStatusCode.NotFound, "resource.not_found");
+
+        using HttpResponseMessage animalCrossTenant = await TransferirResponsabilidadeAsync(
+            tenantB,
+            animalA,
+            tutorB,
+            versao);
+
+        await AssertStatusCodeAsync(HttpStatusCode.NotFound, animalCrossTenant);
+        await AssertProblemDetailsAsync(animalCrossTenant, HttpStatusCode.NotFound, "resource.not_found");
+    }
+
+    [Fact]
+    public async Task TransferirResponsabilidade_ComVersaoDesatualizada_RetornaConflict()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient client = CriarClienteAutorizado(TenantA);
+        Guid tutorAnteriorId = await CadastrarTutorELerIdAsync(client, "Maria Oliveira", "529.982.247-25");
+        Guid tutorNovoId = await CadastrarTutorELerIdAsync(client, "Bruna Lima", "123.456.789-09");
+        Guid outroTutorId = await CadastrarTutorELerIdAsync(client, "Ana Souza", "987.654.321-00");
+        Guid animalId = await CadastrarAnimalELerIdAsync(client, tutorAnteriorId, "Luna", "Canina");
+        int versao = await ConsultarVersaoAnimalAsync(client, animalId);
+
+        using HttpResponseMessage primeiraTransferencia = await TransferirResponsabilidadeAsync(
+            client,
+            animalId,
+            tutorNovoId,
+            versao);
+        await AssertStatusCodeAsync(HttpStatusCode.OK, primeiraTransferencia);
+
+        using HttpResponseMessage response = await TransferirResponsabilidadeAsync(
+            client,
+            animalId,
+            outroTutorId,
+            versao);
+
+        await AssertStatusCodeAsync(HttpStatusCode.Conflict, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "resource.conflict");
+    }
+
+    [Fact]
     public async Task PesquisarAnimais_AplicaFiltrosPaginacaoOrdenacaoEIsolamento()
     {
         await _postgresql.ResetDatabaseAsync();
@@ -291,6 +434,17 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
             TestContext.Current.CancellationToken);
         await AssertStatusCodeAsync(HttpStatusCode.Unauthorized, semToken);
         await AssertProblemDetailsAsync(semToken, HttpStatusCode.Unauthorized, "auth.unauthenticated");
+
+        using HttpResponseMessage transferenciaSemToken = await TransferirResponsabilidadeAsync(
+            client,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            versao: 1);
+        await AssertStatusCodeAsync(HttpStatusCode.Unauthorized, transferenciaSemToken);
+        await AssertProblemDetailsAsync(
+            transferenciaSemToken,
+            HttpStatusCode.Unauthorized,
+            "auth.unauthenticated");
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
@@ -384,6 +538,33 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
         JsonElement animal = await ReadJsonAsync(response);
 
         return animal.GetProperty("animalId").GetGuid();
+    }
+
+    private static async Task<HttpResponseMessage> TransferirResponsabilidadeAsync(
+        HttpClient client,
+        Guid animalId,
+        Guid novoTutorId,
+        int versao,
+        string? motivo = null) =>
+        await client.PostAsJsonAsync(
+            $"/animais/{animalId:D}/transferencias-de-responsabilidade",
+            new
+            {
+                novoTutorId,
+                versao,
+                motivo
+            },
+            TestContext.Current.CancellationToken);
+
+    private static async Task<int> ConsultarVersaoAnimalAsync(HttpClient client, Guid animalId)
+    {
+        using HttpResponseMessage response = await client.GetAsync(
+            $"/animais/{animalId:D}",
+            TestContext.Current.CancellationToken);
+        await AssertStatusCodeAsync(HttpStatusCode.OK, response);
+        JsonElement animal = await ReadJsonAsync(response);
+
+        return animal.GetProperty("versao").GetInt32();
     }
 
     private static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)

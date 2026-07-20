@@ -18,6 +18,8 @@ public static class ModuloTutoresPersistenceExtensions
 
         modelBuilder.ApplyConfiguration(new TutorEntityTypeConfiguration(tenantIdAtual));
         modelBuilder.ApplyConfiguration(new AnimalEntityTypeConfiguration(tenantIdAtual));
+        modelBuilder.ApplyConfiguration(
+            new TransferenciaDeResponsabilidadeDoAnimalEntityTypeConfiguration(tenantIdAtual));
 
         return modelBuilder;
     }
@@ -30,8 +32,12 @@ public static class ModuloTutoresPersistenceExtensions
 
         EntityEntry<Tutor>[] alteracoesDeTutores = ObterAlteracoes<Tutor>(changeTracker);
         EntityEntry<Animal>[] alteracoesDeAnimais = ObterAlteracoes<Animal>(changeTracker);
+        EntityEntry<TransferenciaDeResponsabilidadeDoAnimal>[] alteracoesDeTransferencias =
+            ObterAlteracoes<TransferenciaDeResponsabilidadeDoAnimal>(changeTracker);
 
-        if (alteracoesDeTutores.Length == 0 && alteracoesDeAnimais.Length == 0)
+        if (alteracoesDeTutores.Length == 0 &&
+            alteracoesDeAnimais.Length == 0 &&
+            alteracoesDeTransferencias.Length == 0)
         {
             return;
         }
@@ -57,6 +63,21 @@ public static class ModuloTutoresPersistenceExtensions
             {
                 throw new InvalidOperationException(
                     "O animal alterado deve pertencer ao tenant autenticado.");
+            }
+        }
+
+        foreach (EntityEntry<TransferenciaDeResponsabilidadeDoAnimal> alteracao in alteracoesDeTransferencias)
+        {
+            if (alteracao.State is EntityState.Modified or EntityState.Deleted)
+            {
+                throw new InvalidOperationException(
+                    "O historico de transferencia de responsabilidade do animal nao deve ser alterado ou removido.");
+            }
+
+            if (alteracao.Entity.TenantId.Valor != tenantIdAtual.Value)
+            {
+                throw new InvalidOperationException(
+                    "A transferencia de responsabilidade do animal deve pertencer ao tenant autenticado.");
             }
         }
     }

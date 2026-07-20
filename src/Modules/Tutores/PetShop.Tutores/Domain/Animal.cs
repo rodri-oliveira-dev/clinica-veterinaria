@@ -14,6 +14,7 @@ internal sealed class Animal : IEquatable<Animal>
         ObservacaoCadastral? observacaoCadastral,
         SituacaoDoAnimal situacao,
         TutorId tutorResponsavelId,
+        int versao,
         DateTimeOffset criadoEm,
         DateTimeOffset atualizadoEm,
         DateTimeOffset? inativadoEm)
@@ -29,6 +30,7 @@ internal sealed class Animal : IEquatable<Animal>
         ObservacaoCadastral = observacaoCadastral;
         Situacao = situacao;
         TutorResponsavelId = tutorResponsavelId;
+        Versao = versao;
         CriadoEm = criadoEm;
         AtualizadoEm = atualizadoEm;
         InativadoEm = inativadoEm;
@@ -56,7 +58,9 @@ internal sealed class Animal : IEquatable<Animal>
 
     public TutorResponsavel TutorResponsavel => TutorResponsavel.Criar(TutorResponsavelId.Valor);
 
-    internal TutorId TutorResponsavelId { get; }
+    internal TutorId TutorResponsavelId { get; private set; }
+
+    public int Versao { get; private set; }
 
     public DateTimeOffset CriadoEm { get; }
 
@@ -94,6 +98,7 @@ internal sealed class Animal : IEquatable<Animal>
             observacaoCadastral,
             SituacaoDoAnimal.Ativo,
             TutorId.Criar(tutorResponsavel.TutorId),
+            versao: 1,
             cadastradoEm,
             cadastradoEm,
             inativadoEm: null);
@@ -119,6 +124,7 @@ internal sealed class Animal : IEquatable<Animal>
         CorOuPelagem = corOuPelagem;
         ObservacaoCadastral = observacaoCadastral;
         AtualizadoEm = atualizadoEm;
+        Versao++;
     }
 
     public void Inativar(DateTimeOffset inativadoEm)
@@ -131,6 +137,23 @@ internal sealed class Animal : IEquatable<Animal>
         Situacao = SituacaoDoAnimal.Inativo;
         InativadoEm = inativadoEm;
         AtualizadoEm = inativadoEm;
+        Versao++;
+    }
+
+    public void TransferirResponsabilidade(
+        TutorResponsavel novoTutorResponsavel,
+        DateTimeOffset transferidoEm)
+    {
+        TutorId novoTutorId = TutorId.Criar(novoTutorResponsavel.TutorId);
+
+        if (TutorResponsavelId == novoTutorId)
+        {
+            throw new InvalidOperationException("O novo tutor responsavel deve ser diferente do tutor atual.");
+        }
+
+        TutorResponsavelId = novoTutorId;
+        AtualizadoEm = transferidoEm;
+        Versao++;
     }
 
     public bool Equals(Animal? other) =>

@@ -46,8 +46,51 @@ As decisoes completas estao em:
 ## Requisitos
 
 - .NET SDK 10
+- VS Code, quando usar a experiencia de desenvolvimento versionada do repositorio
 - Docker Desktop, Podman ou runtime OCI compativel para os containers locais do Aspire
+- Docker Compose v2, quando usar a alternativa containerizada
 - Acesso ao NuGet.org para restore
+
+## Experiencia no VS Code
+
+Abra o workspace versionado na raiz do repositorio:
+
+```bash
+code ./clinica-veterinaria.code-workspace
+```
+
+O workspace abre a pasta raiz do repositorio. As preferencias compartilhadas, incluindo a solution padrao `ClinicaVeterinaria.slnx`, ficam em `.vscode/settings.json` para evitar configuracao duplicada.
+
+Extensoes recomendadas em `.vscode/extensions.json`:
+
+- C# Dev Kit, C#, runtime .NET e extensao oficial Aspire para editar, testar e depurar os projetos .NET e o AppHost.
+- Docker/Container Tools, YAML e GitHub Actions para `Dockerfile`, `compose.yaml` e workflows.
+- Markdown, markdownlint e Mermaid para documentacao e modelos de ameaca.
+- EditorConfig, Coverage Gutters, SonarLint em modo local e Trivy para manter sinais de qualidade e seguranca no editor.
+
+Tasks principais disponiveis pelo comando `Tasks: Run Task`:
+
+- `dotnet: tool restore`;
+- `dotnet: restore solution`;
+- `dotnet: build solution`;
+- `dotnet: test solution`;
+- `local: start aspire`;
+- `local: start compose`;
+- `local: stop compose`;
+- `local: reset compose`;
+- `local: logs compose`;
+- `docker: compose config`;
+- `docker: build api image`.
+
+Configuracoes de debug disponiveis:
+
+- `PetShop.AppHost (Aspire)`: experiencia principal local. Inicia o AppHost, que compoe API, PostgreSQL e Keycloak e integra com o Aspire Dashboard.
+- `PetShop.Api (host, local dependencies required)`: executa apenas a API no host em `Development`. Use quando PostgreSQL e Keycloak ja estiverem disponiveis por Compose ou outro ambiente local compativel. O launch usa a connection string local descartavel do `.env.example`; se alterar porta, usuario, senha ou banco em `.env`, ajuste tambem a variavel `ConnectionStrings__petshop` da configuracao de debug.
+
+Aspire e Compose tem papeis diferentes:
+
+- Aspire e o caminho padrao de desenvolvimento local, com composicao declarativa, injecao de configuracao e dashboard.
+- Docker Compose e a alternativa explicita para validar a imagem da API e executar API, PostgreSQL e Keycloak totalmente em containers. Ele nao substitui o AppHost e nao adiciona observabilidade externa por conta propria.
 
 ## Comandos
 

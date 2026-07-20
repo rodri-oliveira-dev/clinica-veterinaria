@@ -1,0 +1,18 @@
+{
+  "recommendations": [
+    "ms-dotnettools.csdevkit",
+    "ms-dotnettools.csharp",
+    "ms-dotnettools.vscode-dotnet-runtime",
+    "microsoft-aspire.aspire-vscode",
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml",
+    "github.vscode-github-actions",
+    "yzhang.markdown-all-in-one",
+    "davidanson.vscode-markdownlint",
+    "bierner.markdown-mermaid",
+    "editorconfig.editorconfig",
+    "ryanluker.vscode-coverage-gutters",
+    "sonarsource.sonarlint-vscode",
+    "aquasecurityofficial.trivy-vulnerability-scanner"
+  ]
+}

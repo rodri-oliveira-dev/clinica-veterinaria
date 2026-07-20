@@ -7,13 +7,15 @@ using PetShop.Observability.Propagation;
 
 namespace PetShop.IntegrationTests;
 
-public sealed class ApiDiagnosticsTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class ApiDiagnosticsTests : IClassFixture<PostgreSqlFixture>, IDisposable
 {
     private readonly WebApplicationFactory<Program> _factory;
 
-    public ApiDiagnosticsTests(WebApplicationFactory<Program> factory)
+    public ApiDiagnosticsTests(PostgreSqlFixture postgresql)
     {
-        _factory = factory;
+        ArgumentNullException.ThrowIfNull(postgresql);
+
+        _factory = new PetShopApiFactory(postgresql.ConnectionString);
     }
 
     [Fact]
@@ -44,6 +46,11 @@ public sealed class ApiDiagnosticsTests : IClassFixture<WebApplicationFactory<Pr
         Assert.NotNull(body);
         Assert.Equal("PetShop.Api", body.Service);
         Assert.Equal(correlationId, body.CorrelationId);
+    }
+
+    public void Dispose()
+    {
+        _factory.Dispose();
     }
 
     private sealed record DiagnosticsResponse(

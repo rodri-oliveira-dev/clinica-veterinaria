@@ -2,7 +2,7 @@
 
 Backend inicial de uma plataforma SaaS multitenant para clinicas veterinarias, petshops e servicos para pets.
 
-O projeto nasce como um monolito modular em .NET 10 com um unico deploy. A entrega atual cria a fundacao tecnica minima: API HTTP, AppHost Aspire para composicao local com PostgreSQL e Keycloak, building blocks de observabilidade e testes de baseline. Modulos de negocio, EF Core, autenticacao JWT e multitenancy tecnico serao adicionados apenas quando houver uma fatia funcional concreta.
+O projeto nasce como um monolito modular em .NET 10 com um unico deploy. A entrega atual cria a fundacao tecnica minima: API HTTP, AppHost Aspire para composicao local com PostgreSQL e Keycloak, EF Core com provider PostgreSQL, building blocks de observabilidade e testes de baseline. Modulos de negocio, autenticacao JWT e multitenancy tecnico serao adicionados apenas quando houver uma fatia funcional concreta.
 
 ## Estrutura
 
@@ -22,7 +22,7 @@ tests/
 
 ## Projetos
 
-- `PetShop.Api`: ASP.NET Core API com endpoints minimos `/health` e `/diagnostics`.
+- `PetShop.Api`: ASP.NET Core API com endpoints minimos `/health` e `/diagnostics`, `PetShopDbContext` tecnico minimo e health check de PostgreSQL.
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
@@ -57,9 +57,10 @@ dotnet build ./ClinicaVeterinaria.slnx --configuration Release --no-restore
 dotnet test ./ClinicaVeterinaria.slnx --configuration Release --no-build --no-restore --settings ./coverlet.runsettings
 ```
 
-Para executar a API diretamente:
+Para executar a API diretamente, informe a connection string convencional `ConnectionStrings:petshop`:
 
 ```bash
+ConnectionStrings__petshop="Host=localhost;Port=5432;Database=petshop;Username=petshop;Password=<senha>"
 dotnet run --project ./src/Apps/PetShop.Api/PetShop.Api.csproj
 ```
 
@@ -71,6 +72,54 @@ dotnet run --project ./src/AppHost/PetShop.AppHost/PetShop.AppHost.csproj
 
 Esse comando inicia a API, o PostgreSQL e o Keycloak e disponibiliza o Aspire Dashboard. O endereco do dashboard aparece no console do AppHost durante a inicializacao.
 
+## Persistencia PostgreSQL e EF Core
+
+A API registra um `PetShopDbContext` tecnico minimo em `src/Apps/PetShop.Api/Infrastructure/Persistence/`. Ele nao possui `DbSet`, entidades de negocio, repositories genericos ou Unit of Work customizado.
+
+Configuracao:
+
+- A connection string se chama `petshop`.
+- No Aspire local, `PetShop.AppHost` injeta essa connection string na API por `WithReference(petshopDatabase)`.
+- Fora do Aspire, use configuracao padrao do ASP.NET Core, como variavel de ambiente `ConnectionStrings__petshop`, user-secrets ou arquivo local nao versionado.
+- O provider EF Core e `Npgsql.EntityFrameworkCore.PostgreSQL`.
+- A convencao relacional usa `snake_case` e a tabela de historico de migrations se chama `__ef_migrations_history`.
+- O endpoint `/health` inclui o check `postgresql`, baseado no `PetShopDbContext`.
+
+Comandos de migrations:
+
+```bash
+dotnet tool restore
+
+ConnectionStrings__petshop="Host=localhost;Port=5432;Database=petshop;Username=petshop;Password=<senha>" \
+dotnet dotnet-ef migrations add NomeDaMigration \
+  --project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
+  --startup-project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
+  --output-dir Infrastructure/Persistence/Migrations \
+  --context PetShopDbContext
+
+ConnectionStrings__petshop="Host=localhost;Port=5432;Database=petshop;Username=petshop;Password=<senha>" \
+dotnet dotnet-ef database update \
+  --project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
+  --startup-project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
+  --context PetShopDbContext
+```
+
+Politica de migrations:
+
+- Em desenvolvimento, novas alteracoes de schema devem gerar migrations versionadas junto com a mudanca de codigo.
+- A API nao aplica migrations automaticamente no startup.
+- Em producao, gere script idempotente e aplique pelo processo de release do ambiente:
+
+```bash
+dotnet dotnet-ef migrations script --idempotent \
+  --project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
+  --startup-project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
+  --context PetShopDbContext \
+  --output ./artifacts/sql/petshop-migrations.sql
+```
+
+Ao introduzir a primeira tabela de negocio, ela deve possuir `tenant_id` obrigatorio conforme a ADR-0001. Query filters, interceptors de tenant e Row-Level Security permanecem fora desta fundacao ate existir uma decisao especifica.
+
 ## Ambiente local Aspire
 
 Recursos locais:
@@ -80,7 +129,7 @@ Recursos locais:
 - `petshop`: banco logico criado no PostgreSQL local e referenciado pela API.
 - `keycloak`: Keycloak em container, exposto em porta estavel `8080` para evitar instabilidade de cookies OIDC durante o desenvolvimento.
 
-O AppHost usa `WaitFor` para aguardar PostgreSQL e Keycloak antes de iniciar a API, e `WithReference` para disponibilizar as informacoes dos recursos para a API. Nesta entrega a API ainda nao consome o banco nem autentica via Keycloak; EF Core, realm, client e JWT permanecem fora do escopo.
+O AppHost usa `WaitFor` para aguardar PostgreSQL e Keycloak antes de iniciar a API, e `WithReference` para disponibilizar as informacoes dos recursos para a API. Nesta entrega a API consome o PostgreSQL via EF Core, mas ainda nao autentica via Keycloak; realm, client e JWT permanecem fora do escopo.
 
 Volumes persistentes:
 
@@ -104,9 +153,9 @@ Separacao local/producao:
 
 ## Escopo ainda nao implementado
 
-- EF Core e migrations.
 - Realm, client, JWT, autenticacao e autorizacao.
 - Implementacao tecnica de multitenancy.
+- Query filters, interceptors de tenant e Row-Level Security.
 - OpenTelemetry completo com exporter OTLP.
 - Modulos de negocio como cadastro, pets, agenda, atendimento ou cobranca.
 - Broker, Redis, API Gateway, microsservicos ou multiplos bancos.

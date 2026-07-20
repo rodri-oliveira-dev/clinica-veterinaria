@@ -1,11 +1,12 @@
 using PetShop.Api.Diagnostics;
+using PetShop.Api.Infrastructure.Persistence;
 using PetShop.Observability.AspNetCore.Extensions;
 using PetShop.Observability.Context;
 using PetShop.Observability.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddHealthChecks();
+builder.Services.AddPetShopPersistence(builder.Configuration);
 builder.Services.AddPetShopObservabilityPropagation();
 
 var app = builder.Build();

@@ -30,6 +30,7 @@ env:
   CI: true
   DOTNET_NOLOGO: true
   BUILD_CONFIGURATION: Release
+  TEST_RESULTS_DIR: artifacts/test-results
 
 jobs:
   build-test:
@@ -73,11 +74,94 @@ jobs:
       - name: Build
         run: dotnet build "${{ steps.solution.outputs.path }}" --configuration "$BUILD_CONFIGURATION" --no-restore
 
-      - name: Test
+      - name: Unit tests
+        run: |
+          dotnet test ./tests/PetShop.UnitTests/PetShop.UnitTests.csproj \
+            --configuration "$BUILD_CONFIGURATION" \
+            --no-build \
+            --no-restore \
+            --settings ./coverlet.runsettings \
+            --collect "XPlat Code Coverage" \
+            --logger "trx;LogFileName=PetShop.UnitTests.trx" \
+            --results-directory "$TEST_RESULTS_DIR/unit/PetShop.UnitTests"
+
+          dotnet test ./tests/BuildingBlocks/PetShop.Observability.Tests/PetShop.Observability.Tests.csproj \
+            --configuration "$BUILD_CONFIGURATION" \
+            --no-build \
+            --no-restore \
+            --settings ./coverlet.runsettings \
+            --collect "XPlat Code Coverage" \
+            --logger "trx;LogFileName=PetShop.Observability.Tests.trx" \
+            --results-directory "$TEST_RESULTS_DIR/unit/PetShop.Observability.Tests"
+
+      - name: Architecture tests
         run: >-
-          dotnet test "${{ steps.solution.outputs.path }}"
+          dotnet test ./tests/PetShop.ArchitectureTests/PetShop.ArchitectureTests.csproj
           --configuration "$BUILD_CONFIGURATION"
           --no-build
           --no-restore
           --settings ./coverlet.runsettings
           --collect "XPlat Code Coverage"
+          --logger "trx;LogFileName=PetShop.ArchitectureTests.trx"
+          --results-directory "$TEST_RESULTS_DIR/architecture"
+
+      - name: Verify Docker for Testcontainers
+        run: docker version
+
+      - name: Integration tests
+        run: >-
+          dotnet test ./tests/PetShop.IntegrationTests/PetShop.IntegrationTests.csproj
+          --configuration "$BUILD_CONFIGURATION"
+          --no-build
+          --no-restore
+          --settings ./coverlet.runsettings
+          --collect "XPlat Code Coverage"
+          --logger "trx;LogFileName=PetShop.IntegrationTests.trx"
+          --results-directory "$TEST_RESULTS_DIR/integration"
+
+      - name: Aspire smoke tests
+        run: >-
+          dotnet test ./tests/PetShop.AppHost.Tests/PetShop.AppHost.Tests.csproj
+          --configuration "$BUILD_CONFIGURATION"
+          --no-build
+          --no-restore
+          --settings ./coverlet.runsettings
+          --collect "XPlat Code Coverage"
+          --logger "trx;LogFileName=PetShop.AppHost.Tests.trx"
+          --results-directory "$TEST_RESULTS_DIR/smoke"
+
+      - name: Summarize test artifacts
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "## .NET quality gates"
+            echo
+            echo "| Gate | TRX files | Coverage files |"
+            echo "| --- | ---: | ---: |"
+            for gate in unit architecture integration smoke; do
+              trx_count="$(find "$TEST_RESULTS_DIR/$gate" -name '*.trx' 2>/dev/null | wc -l | tr -d ' ')"
+              coverage_count="$(find "$TEST_RESULTS_DIR/$gate" \( -name 'coverage.cobertura.xml' -o -name 'coverage.opencover.xml' \) 2>/dev/null | wc -l | tr -d ' ')"
+              echo "| $gate | $trx_count | $coverage_count |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dotnet-test-results
+          path: ${{ env.TEST_RESULTS_DIR }}/**/*.trx
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload coverage reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dotnet-coverage
+          path: |
+            ${{ env.TEST_RESULTS_DIR }}/**/coverage.cobertura.xml
+            ${{ env.TEST_RESULTS_DIR }}/**/coverage.opencover.xml
+          if-no-files-found: warn
+          retention-days: 14

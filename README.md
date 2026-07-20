@@ -58,6 +58,16 @@ dotnet build ./ClinicaVeterinaria.slnx --configuration Release --no-restore
 dotnet test ./ClinicaVeterinaria.slnx --configuration Release --no-build --no-restore --settings ./coverlet.runsettings
 ```
 
+Gates locais equivalentes ao CI:
+
+```bash
+dotnet test ./tests/PetShop.UnitTests/PetShop.UnitTests.csproj --configuration Release --no-build --no-restore --settings ./coverlet.runsettings --collect "XPlat Code Coverage"
+dotnet test ./tests/BuildingBlocks/PetShop.Observability.Tests/PetShop.Observability.Tests.csproj --configuration Release --no-build --no-restore --settings ./coverlet.runsettings --collect "XPlat Code Coverage"
+dotnet test ./tests/PetShop.ArchitectureTests/PetShop.ArchitectureTests.csproj --configuration Release --no-build --no-restore --settings ./coverlet.runsettings --collect "XPlat Code Coverage"
+dotnet test ./tests/PetShop.IntegrationTests/PetShop.IntegrationTests.csproj --configuration Release --no-build --no-restore --settings ./coverlet.runsettings --collect "XPlat Code Coverage"
+dotnet test ./tests/PetShop.AppHost.Tests/PetShop.AppHost.Tests.csproj --configuration Release --no-build --no-restore --settings ./coverlet.runsettings --collect "XPlat Code Coverage"
+```
+
 Para executar a API diretamente, informe a connection string convencional `ConnectionStrings:petshop`:
 
 ```bash
@@ -102,14 +112,14 @@ Comandos de migrations:
 dotnet tool restore
 
 ConnectionStrings__petshop="Host=localhost;Port=5432;Database=petshop;Username=petshop;Password=<senha>" \
-dotnet dotnet-ef migrations add NomeDaMigration \
+dotnet ef migrations add NomeDaMigration \
   --project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
   --startup-project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
   --output-dir Infrastructure/Persistence/Migrations \
   --context PetShopDbContext
 
 ConnectionStrings__petshop="Host=localhost;Port=5432;Database=petshop;Username=petshop;Password=<senha>" \
-dotnet dotnet-ef database update \
+dotnet ef database update \
   --project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
   --startup-project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
   --context PetShopDbContext
@@ -122,7 +132,7 @@ Politica de migrations:
 - Em producao, gere script idempotente e aplique pelo processo de release do ambiente:
 
 ```bash
-dotnet dotnet-ef migrations script --idempotent \
+dotnet ef migrations script --idempotent \
   --project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
   --startup-project ./src/Apps/PetShop.Api/PetShop.Api.csproj \
   --context PetShopDbContext \
@@ -260,6 +270,22 @@ Instrumentacoes habilitadas:
 O exporter OTLP e habilitado somente quando houver endpoint configurado por `OpenTelemetry:Otlp:Endpoint`, `OpenTelemetry__Otlp__Endpoint` ou pela variavel padrao `OTEL_EXPORTER_OTLP_ENDPOINT`. Ao executar pelo AppHost Aspire, o endpoint OTLP do dashboard e injetado no processo da API e logs, traces e metricas passam a aparecer no Aspire Dashboard.
 
 O middleware de entrada aceita `X-Correlation-Id` valido ou cria um novo GUID, devolve o mesmo header na resposta e adiciona `correlation_id` e `tenant_id` como tags da Activity e scope de log. Esses identificadores nao sao adicionados ao W3C baggage; mensagens e jobs usam os headers canonicos `correlation_id`, `tenant_id`, `traceparent`, `tracestate` e `baggage` pelo building block `PetShop.Observability`.
+
+## Qualidade, testes e CI
+
+A Entrega 0 fecha os gates automatizados minimos para a fundacao atual, sem criar modulos vazios ou infraestrutura futura.
+
+Suites:
+
+- `PetShop.UnitTests`: tipos, factories e validacoes puras da API.
+- `PetShop.Observability.Tests`: propagacao, correlation, HTTP de saida e adapter ASP.NET Core.
+- `PetShop.ArchitectureTests`: regras de referencia entre projetos, ausencia de dependencia ASP.NET Core em `PetShop.Observability`, API sem dependencia do AppHost, producao sem dependencia de testes e ausencia de ciclos.
+- `PetShop.IntegrationTests`: WebApplicationFactory, JWT Bearer defensivo, Problem Details, health/readiness, OpenAPI e migrations em PostgreSQL real com Testcontainers.
+- `PetShop.AppHost.Tests`: smoke tests leves da composicao Aspire e do realm local do Keycloak.
+
+O workflow `.github/workflows/dotnet.yml` executa checkout, setup do .NET pelo `global.json`, restore com auditoria NuGet, build Release, gates separados de testes, verificacao de Docker para Testcontainers, coleta de cobertura via Coverlet e publicacao de TRX/cobertura como artifacts. Os workflows adicionais cobrem Gitleaks, CodeQL, Dependency Review e SonarCloud opt-in quando as variaveis e secrets do repositorio estiverem configurados.
+
+Cobertura e usada como sinal de risco. Nao ha threshold artificial nesta entrega; os pontos de maior risco ja cobertos sao autenticacao/autorizacao, tenant autenticado, correlation, health/readiness, OpenAPI, migrations e fronteiras arquiteturais. A primeira funcionalidade de negocio tenant-owned deve adicionar testes de isolamento persistente com pelo menos dois tenants.
 
 ## Escopo ainda nao implementado
 

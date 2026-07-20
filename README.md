@@ -15,6 +15,7 @@ O conteúdo foi revisado para não depender dos bounded contexts, nomes de solu�
 - `tests/BuildingBlocks/PetShop.Observability.Tests/`: testes do contrato de propagação.
 - `.githooks/`: Conventional Commits, restore após merge e validação antes do push.
 - `scripts/setup/`: configuração segura de `core.hooksPath` para Bash e PowerShell.
+- `ClinicaVeterinaria.slnx`: solution inicial com os building blocks e testes de observabilidade.
 - `.github/actions/setup-dotnet/`: action composta para SDK e cache NuGet.
 - `.github/workflows/`: CI .NET, CodeQL, dependency review, Gitleaks e SonarCloud opt-in.
 - `.gitleaks.toml`: configuração conservadora de secret scanning.
@@ -105,15 +106,11 @@ Também permanecem pendentes decisões específicas de multitenancy, como tipo c
 
 1. Crie o novo repositório.
 2. Copie todos os arquivos e diretórios dentro de `novo-projeto/` para a raiz dele.
-3. Crie a solution e os primeiros projetos.
-4. Adicione à solution:
-   - `src/BuildingBlocks/PetShop.Observability/PetShop.Observability.csproj`;
-   - `src/BuildingBlocks/PetShop.Observability.AspNetCore/PetShop.Observability.AspNetCore.csproj`;
-   - `tests/BuildingBlocks/PetShop.Observability.Tests/PetShop.Observability.Tests.csproj`.
-5. Preserve as decisões ADR-0001 e ADR-0002.
-6. Ajuste o nome e a descrição do projeto no `AGENTS.md`, sem remover as regras de isolamento ou propagação.
-7. Acrescente novas versões ao `Directory.Packages.props` somente quando outros pacotes forem introduzidos.
-8. Configure os hooks:
+3. Renomeie a solution e acrescente os primeiros projetos do produto quando o novo repositório for iniciado.
+4. Preserve as decisões ADR-0001 e ADR-0002.
+5. Ajuste o nome e a descrição do projeto no `AGENTS.md`, sem remover as regras de isolamento ou propagação.
+6. Acrescente novas versões ao `Directory.Packages.props` somente quando outros pacotes forem introduzidos.
+7. Configure os hooks:
 
 ```bash
 ./scripts/setup/configure-git-hooks.sh
@@ -125,13 +122,13 @@ No PowerShell:
 ./scripts/setup/configure-git-hooks.ps1
 ```
 
-9. Confirme a configuração:
+8. Confirme a configuração:
 
 ```bash
 ./scripts/setup/configure-git-hooks.sh --check
 ```
 
-10. Configure SonarCloud quando o projeto estiver cadastrado, seguindo `docs/security/cybersecurity-skills-migration.md`.
+9. Configure SonarCloud quando o projeto estiver cadastrado, seguindo `docs/security/cybersecurity-skills-migration.md`.
 
 ## Premissas iniciais
 
@@ -155,7 +152,7 @@ O baseline assume:
 
 ## Próximos passos sugeridos
 
-Depois de criar a solution, a primeira evolução deve ser uma fatia vertical pequena, por exemplo:
+Depois de preparar o repositório final, a primeira evolução deve ser uma fatia vertical pequena, por exemplo:
 
 1. cadastro de tutor;
 2. cadastro de pet;

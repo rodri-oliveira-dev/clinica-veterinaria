@@ -16,11 +16,11 @@ public sealed class CorrelationIdDelegatingHandlerTests
         string correlationId = Guid.NewGuid().ToString();
         var accessor = new ExecutionContextAccessor();
         var recordingHandler = new RecordingHandler();
-        var propagationHandler = new CorrelationIdDelegatingHandler(accessor)
+        using var propagationHandler = new CorrelationIdDelegatingHandler(accessor)
         {
             InnerHandler = recordingHandler
         };
-        using var client = new HttpClient(propagationHandler);
+        using var client = new HttpClient(propagationHandler, disposeHandler: false);
         using IDisposable scope = accessor.Push(new PropagationContextSnapshot(
             correlationId,
             "tenant-a",

@@ -37,7 +37,7 @@ public static class PropagationHeaders
             PropagationContextSnapshot.NormalizeOptional(Get(values, PropagationHeaderNames.Baggage)));
     }
 
-    private static string? Get(IReadOnlyDictionary<string, string> headers, string name)
+    private static string? Get(Dictionary<string, string> headers, string name)
     {
         return headers.TryGetValue(name, out string? value)
             ? value

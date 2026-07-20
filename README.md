@@ -27,7 +27,7 @@ tests/
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
-- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui o aggregate `Tutor` persistido em PostgreSQL, ainda sem endpoints funcionais ou repository generico.
+- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui o aggregate `Tutor` persistido em PostgreSQL e endpoints HTTP para cadastro, consulta, atualizacao, pesquisa e inativacao, sem repository generico.
 
 ## Decisoes preservadas
 
@@ -235,6 +235,18 @@ Em `Development`, o documento OpenAPI fica disponivel em:
 ```
 
 O documento descreve JWT Bearer, o header opcional `X-Correlation-Id` e respostas `application/problem+json`.
+
+Endpoints funcionais de Tutores:
+
+| Metodo | Rota | Uso |
+| --- | --- | --- |
+| `POST` | `/tutores` | Cadastra tutor e retorna `201 Created` com `Location`. |
+| `GET` | `/tutores/{tutorId}` | Consulta tutor visivel no tenant atual. |
+| `PUT` | `/tutores/{tutorId}` | Atualiza cadastro do tutor pela rota, sem aceitar `tenant_id` ou `id` no body como autoridade. |
+| `GET` | `/tutores` | Pesquisa tutores com `pagina`, `tamanhoPagina`, `nome`, `cpf`, `situacao`, `ordenarPor` e `direcao`. |
+| `POST` | `/tutores/{tutorId}/inativacao` | Inativa tutor sem hard delete. |
+
+Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Dados de outro tenant retornam `404` nos fluxos por identificador. CPF e aceito como filtro normalizado, mas as respostas expõem apenas `cpfMascarado`.
 
 Health checks:
 
@@ -448,7 +460,7 @@ Cobertura e usada como sinal de risco. Nao ha threshold artificial nesta entrega
 
 ## Escopo ainda nao implementado
 
-- Endpoints funcionais de cadastro de tutores e animais, ja documentados em `docs/domain/tutores-e-animais.md`.
+- Endpoints funcionais de animais e vinculos, ja documentados em `docs/domain/tutores-e-animais.md`.
 - Persistencia de animais e vinculos.
 - Row-Level Security.
 - Outros modulos de negocio como agenda, atendimento ou cobranca.

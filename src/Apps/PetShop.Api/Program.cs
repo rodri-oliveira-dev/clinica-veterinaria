@@ -19,7 +19,12 @@ builder.Services.AddPetShopObservabilityPropagation();
 builder.AddPetShopOpenTelemetry();
 builder.Services.AddPetShopApiSecurity(builder.Configuration, builder.Environment);
 builder.Services.AddPetShopTenantContext();
-builder.Services.AddModuloTutores();
+builder.Services.AddModuloTutores<PetShopDbContext>(serviceProvider =>
+{
+    ITenantContext tenantContext = serviceProvider.GetRequiredService<ITenantContext>();
+
+    return tenantContext.IsResolved ? tenantContext.TenantId.Value : null;
+});
 
 var app = builder.Build();
 
@@ -62,6 +67,6 @@ app.MapGet(
             Results.Ok(DiagnosticsResponseFactory.Create(environment, executionContextAccessor, tenantContext)))
     .WithName("Diagnostics")
     .RequireAuthorization(PetShopAuthorizationPolicies.DiagnosticsAccess);
-app.MapModuloTutores();
+app.MapModuloTutores(PetShopAuthorizationPolicies.TutoresAccess);
 
 app.Run();

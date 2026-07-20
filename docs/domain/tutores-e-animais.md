@@ -106,7 +106,9 @@ src/Modules/Tutores/PetShop.Tutores/
 
 Essa fundacao usa pastas conceituais `Domain`, `Application`, `Infrastructure` e `Api`, mas preserva superficie publica minima. A API carrega o modulo somente pelos pontos de composicao `AddModuloTutores` e `MapModuloTutores`.
 
-O SDD 15 persiste `Tutor` em PostgreSQL usando o `PetShopDbContext` tecnico da API como contexto de migration do monolito e mapeamento localizado no modulo `PetShop.Tutores`. Ainda nao existem contratos HTTP de caso de uso, endpoints funcionais, repositories, entidades de animal, vinculos ou eventos de integracao.
+O SDD 15 persiste `Tutor` em PostgreSQL usando o `PetShopDbContext` tecnico da API como contexto de migration do monolito e mapeamento localizado no modulo `PetShop.Tutores`.
+
+O SDD 16 adiciona os casos de uso e contratos HTTP de Tutores no mesmo assembly do modulo. A API continua carregando o modulo pelos pontos de composicao `AddModuloTutores` e `MapModuloTutores`, informando ao modulo o `DbContext` tecnico e o tenant autenticado resolvido na borda. Ainda nao existem entidades de animal, vinculos, eventos de integracao ou repository generico.
 
 ## Invariantes conhecidas
 
@@ -172,7 +174,33 @@ Trade-off registrado:
 Privacidade:
 
 - CPF, e-mail e telefone sao dados pessoais. Nesta etapa eles sao persistidos para finalidade operacional de cadastro e contato do tutor pela clinica dentro do tenant.
-- Ainda nao foram definidos mascaramento em respostas HTTP, retencao, exportacao, eliminacao, bloqueio ou fluxos de direitos do titular, pois nao ha API publica ou exportacao nesta fatia.
+- A API de Tutores retorna CPF somente como `cpfMascarado`; pesquisa por CPF aceita valor formatado ou normalizado, mas nao devolve o documento completo.
+- Listagens minimizam dados e retornam somente `tutorId`, `nome`, `cpfMascarado` e `situacao`.
+- Ainda nao foram definidos retencao, exportacao, eliminacao, bloqueio ou fluxos de direitos do titular, pois nao ha API publica para esses processos nesta fatia.
+
+## API de Tutor
+
+Rotas implementadas no SDD 16:
+
+| Metodo | Rota | Uso |
+| --- | --- | --- |
+| `POST` | `/tutores` | `CadastrarTutor`; retorna `201 Created` com `Location`. |
+| `GET` | `/tutores/{tutorId}` | `ConsultarTutorPorId`; outro tenant recebe `404`. |
+| `PUT` | `/tutores/{tutorId}` | `AtualizarTutor`; `tutorId` vem da rota e o tenant vem da claim validada. |
+| `GET` | `/tutores` | `PesquisarTutores`; suporta pagina limitada, nome, CPF normalizado, situacao e ordenacao estavel. |
+| `POST` | `/tutores/{tutorId}/inativacao` | `InativarTutor`; nao realiza hard delete. |
+
+Contratos HTTP sao separados do Domain. Requests nao aceitam `tenant_id` nem `id` como autoridade; membros JSON nao mapeados sao rejeitados pelo contrato fechado da API. Todos os endpoints exigem JWT Bearer com `tenant_id` valido e role minima `petshop.access`.
+
+Pesquisa:
+
+- `pagina`: padrao `1`;
+- `tamanhoPagina`: padrao `20`, maximo `100`;
+- `nome`: filtro textual;
+- `cpf`: filtro por CPF normalizado;
+- `situacao`: `ativo` ou `inativo`;
+- `ordenarPor`: `nome` ou `criadoEm`;
+- `direcao`: `asc` ou `desc`.
 
 ## Fluxos da Entrega 1
 

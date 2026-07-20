@@ -49,6 +49,35 @@ public sealed class OpenApiContractTests : IDisposable
             .TryGetProperty("application/problem+json", out _));
         Assert.True(responses.TryGetProperty("403", out _));
         Assert.True(responses.TryGetProperty("500", out _));
+
+        JsonElement paths = root.GetProperty("paths");
+        Assert.True(paths.GetProperty("/tutores").TryGetProperty("post", out JsonElement cadastrarTutor));
+        Assert.True(paths.GetProperty("/tutores").TryGetProperty("get", out JsonElement pesquisarTutores));
+        Assert.True(paths.GetProperty("/tutores/{tutorId}").TryGetProperty("get", out JsonElement consultarTutor));
+        Assert.True(paths.GetProperty("/tutores/{tutorId}").TryGetProperty("put", out JsonElement atualizarTutor));
+        Assert.True(paths.GetProperty("/tutores/{tutorId}/inativacao").TryGetProperty("post", out JsonElement inativarTutor));
+
+        AssertSecuredTutorOperation(cadastrarTutor);
+        AssertSecuredTutorOperation(pesquisarTutores);
+        AssertSecuredTutorOperation(consultarTutor);
+        AssertSecuredTutorOperation(atualizarTutor);
+        AssertSecuredTutorOperation(inativarTutor);
+        Assert.Contains(
+            consultarTutor.GetProperty("parameters").EnumerateArray(),
+            parameter =>
+                parameter.GetProperty("name").GetString() == "tutorId" &&
+                parameter.GetProperty("in").GetString() == "path");
+    }
+
+    private static void AssertSecuredTutorOperation(JsonElement operation)
+    {
+        Assert.True(operation.TryGetProperty("security", out JsonElement security));
+        Assert.NotEmpty(security.EnumerateArray());
+
+        JsonElement responses = operation.GetProperty("responses");
+        Assert.True(responses.TryGetProperty("401", out _));
+        Assert.True(responses.TryGetProperty("403", out _));
+        Assert.True(responses.TryGetProperty("500", out _));
     }
 
     public void Dispose()

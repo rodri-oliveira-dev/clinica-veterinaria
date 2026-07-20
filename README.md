@@ -27,7 +27,7 @@ tests/
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
-- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui o aggregate `Tutor` persistido em PostgreSQL e endpoints HTTP para cadastro, consulta, atualizacao, pesquisa e inativacao, sem repository generico.
+- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui o aggregate `Tutor` persistido em PostgreSQL e endpoints HTTP para cadastro, consulta, atualizacao, pesquisa e inativacao, alem do modelo de dominio inicial de `Animal` ainda sem persistencia ou API, sem repository generico.
 
 ## Decisoes preservadas
 

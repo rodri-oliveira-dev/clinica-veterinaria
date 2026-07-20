@@ -108,7 +108,9 @@ Essa fundacao usa pastas conceituais `Domain`, `Application`, `Infrastructure` e
 
 O SDD 15 persiste `Tutor` em PostgreSQL usando o `PetShopDbContext` tecnico da API como contexto de migration do monolito e mapeamento localizado no modulo `PetShop.Tutores`.
 
-O SDD 16 adiciona os casos de uso e contratos HTTP de Tutores no mesmo assembly do modulo. A API continua carregando o modulo pelos pontos de composicao `AddModuloTutores` e `MapModuloTutores`, informando ao modulo o `DbContext` tecnico e o tenant autenticado resolvido na borda. Ainda nao existem entidades de animal, vinculos, eventos de integracao ou repository generico.
+O SDD 16 adiciona os casos de uso e contratos HTTP de Tutores no mesmo assembly do modulo. A API continua carregando o modulo pelos pontos de composicao `AddModuloTutores` e `MapModuloTutores`, informando ao modulo o `DbContext` tecnico e o tenant autenticado resolvido na borda.
+
+O SDD 17 introduz o modelo de dominio inicial de `Animal`, ainda sem persistencia, endpoints, repository, consulta direta a `Tutor`, vinculos completos ou eventos de integracao.
 
 ## Invariantes conhecidas
 
@@ -139,6 +141,29 @@ Campos e regras iniciais:
 - alteracoes de cadastro preservam identidade, tenant e `CriadoEm`, e atualizam `AtualizadoEm`.
 
 CPF, e-mail e telefone sao dados pessoais do tutor. O modelo nao registra logs nem eventos com documento completo nesta etapa. Finalidade, retencao, mascaramento em contratos HTTP e fluxos de direitos do titular continuam pendentes para os SDDs que criarem persistencia, API ou exportacao desses dados.
+
+## Modelo inicial de Animal
+
+O SDD 17 introduz `Animal` como Aggregate Root inicial para o paciente atendido pela clinica dentro do mesmo Bounded Context Cadastro de Tutores e Animais.
+
+O modelo permanece somente no Domain, sem EF Core, endpoints, DTOs HTTP, repositories, eventos de dominio ou contratos entre modulos. `Animal` nao carrega nem consulta o aggregate `Tutor`; ele guarda a referencia operacional pelo Value Object `TutorResponsavel`, baseado no identificador do tutor responsavel. A validacao de existencia do tutor e de associacao no mesmo tenant pertence aos casos de uso futuros que tiverem acesso a persistencia.
+
+Identidade e tenant sao imutaveis por instancia. O `TenantId` permanece o identificador forte local ao modulo e continua vindo da borda autenticada quando houver Application/API.
+
+Campos e regras iniciais:
+
+- `AnimalId`, `TenantId` e `TutorResponsavel` sao obrigatorios e baseados em `Guid`;
+- `NomeDoAnimal` e obrigatorio e remove espacos externos;
+- `Especie` e obrigatoria e modelada como Value Object textual simples, nao como catalogo;
+- `Raca` e opcional e tambem textual, evitando catalogo completo sem requisito;
+- `SexoDoAnimal` aceita `NaoInformado`, `Macho` ou `Femea`;
+- `DataDeNascimento` e opcional, mas nao pode estar no futuro quando informada;
+- `CorOuPelagem` e `ObservacaoCadastral` sao opcionais e removem espacos externos quando usadas;
+- animal nasce com `SituacaoDoAnimal.Ativo`;
+- inativacao muda a situacao para inativo, registra `InativadoEm` e atualiza `AtualizadoEm`;
+- alteracoes de cadastro preservam identidade, tenant, tutor responsavel e `CriadoEm`, e atualizam `AtualizadoEm`.
+
+A decisao por `Especie` e `Raca` textuais reduz complexidade inicial e evita criar catalogos de especies ou racas antes de existir regra de negocio, curadoria ou ownership claro para esses dados.
 
 ## Persistencia inicial de Tutor
 

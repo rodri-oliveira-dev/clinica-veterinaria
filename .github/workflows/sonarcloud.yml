@@ -1,0 +1,130 @@
+name: sonarcloud-analysis
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "**/*.gif"
+      - "**/*.svg"
+      - "**/*.webp"
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  DOTNET_NOLOGO: true
+  BUILD_CONFIGURATION: Release
+  SONAR_SCANNER_VERSION: 11.2.0
+
+jobs:
+  analyze:
+    name: Analyze .NET with SonarCloud
+    if: >-
+      ${{
+        vars.SONARCLOUD_ENABLED == 'true' &&
+        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: ./.github/actions/setup-dotnet
+        with:
+          restore-tools: "true"
+
+      - name: Validate SonarCloud configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in SONAR_TOKEN SONAR_PROJECT_KEY SONAR_ORGANIZATION SONAR_HOST_URL; do
+            if [ -z "${!variable:-}" ]; then
+              echo "Missing required SonarCloud configuration: $variable" >&2
+              exit 1
+            fi
+          done
+
+      - name: Resolve solution
+        id: solution
+        shell: bash
+        run: |
+          set -euo pipefail
+          solution="$(find . -maxdepth 2 -type f \( -name '*.slnx' -o -name '*.sln' \) | sort | head -n 1)"
+          if [ -z "$solution" ]; then
+            echo "No .slnx or .sln file was found." >&2
+            exit 1
+          fi
+          echo "path=$solution" >> "$GITHUB_OUTPUT"
+          echo "Using solution: $solution"
+
+      - name: Install SonarScanner for .NET
+        shell: bash
+        run: |
+          dotnet tool install dotnet-sonarscanner \
+            --tool-path ./.sonar/scanner \
+            --version "$SONAR_SCANNER_VERSION"
+
+      - name: Begin SonarCloud analysis
+        shell: bash
+        run: |
+          ./.sonar/scanner/dotnet-sonarscanner begin \
+            /k:"$SONAR_PROJECT_KEY" \
+            /o:"$SONAR_ORGANIZATION" \
+            /d:sonar.host.url="$SONAR_HOST_URL" \
+            /d:sonar.token="$SONAR_TOKEN" \
+            /d:sonar.qualitygate.wait=true \
+            /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml"
+
+      - name: Restore
+        run: >-
+          dotnet restore "${{ steps.solution.outputs.path }}"
+          -p:NuGetAuditMode=all
+          -p:RestoreEnablePackagePruning=true
+
+      - name: Build
+        run: >-
+          dotnet build "${{ steps.solution.outputs.path }}"
+          --configuration "$BUILD_CONFIGURATION"
+          --no-restore
+
+      - name: Test with coverage
+        run: >-
+          dotnet test "${{ steps.solution.outputs.path }}"
+          --configuration "$BUILD_CONFIGURATION"
+          --no-build
+          --no-restore
+          --settings ./coverlet.runsettings
+          --collect "XPlat Code Coverage"
+
+      - name: End SonarCloud analysis
+        if: ${{ success() }}
+        shell: bash
+        run: >-
+          ./.sonar/scanner/dotnet-sonarscanner end
+          /d:sonar.token="$SONAR_TOKEN"

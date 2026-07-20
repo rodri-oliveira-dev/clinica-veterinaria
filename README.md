@@ -2,7 +2,7 @@
 
 Backend inicial de uma plataforma SaaS multitenant para clinicas veterinarias, petshops e servicos para pets.
 
-O projeto nasce como um monolito modular em .NET 10 com um unico deploy. A entrega atual cria a fundacao tecnica minima: API HTTP protegida por JWT Bearer do Keycloak, AppHost Aspire para composicao local com PostgreSQL e Keycloak, EF Core com provider PostgreSQL, building blocks de observabilidade e testes de baseline. Modulos de negocio e multitenancy tecnico serao adicionados apenas quando houver uma fatia funcional concreta.
+O projeto nasce como um monolito modular em .NET 10 com um unico deploy. A entrega atual cria a fundacao tecnica minima: API HTTP protegida por JWT Bearer do Keycloak, contexto multitenant autenticado, AppHost Aspire para composicao local com PostgreSQL e Keycloak, EF Core com provider PostgreSQL, building blocks de observabilidade e testes de baseline. Modulos de negocio serao adicionados apenas quando houver uma fatia funcional concreta.
 
 ## Estrutura
 
@@ -22,7 +22,7 @@ tests/
 
 ## Projetos
 
-- `PetShop.Api`: ASP.NET Core API com endpoint publico `/health`, endpoint protegido `/diagnostics`, `PetShopDbContext` tecnico minimo e health check de PostgreSQL.
+- `PetShop.Api`: ASP.NET Core API com endpoint publico `/health`, endpoint protegido `/diagnostics`, contexto scoped de tenant autenticado, `PetShopDbContext` tecnico minimo e health check de PostgreSQL.
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
@@ -30,6 +30,7 @@ tests/
 ## Decisoes preservadas
 
 - O tenant autenticado vem exclusivamente da claim validada `tenant_id`.
+- `TenantId` e um identificador forte baseado em `Guid`, com representacao futura PostgreSQL `uuid`.
 - Nao existe tenant padrao, fallback ou tenant informado pelo frontend como autoridade.
 - O Domain nao depende de ASP.NET Core, `HttpContext`, JWT ou claims.
 - `CorrelationId` e independente de `TraceId`.
@@ -151,7 +152,7 @@ Configuracao declarativa do Keycloak:
 - Usuario descartavel: `local.petshop.user`.
 - Senha descartavel local: `local-dev-password`.
 - Tenant local estavel: `11111111-1111-4111-8111-111111111111`.
-- Claim emitida no access token: `tenant_id`.
+- Claim emitida no access token: `tenant_id` no formato `Guid`.
 
 O realm versionado fica em `src/AppHost/PetShop.AppHost/keycloak/realms/petshop-local-realm.json` e e importado automaticamente pelo AppHost com `WithRealmImport("keycloak/realms")`. Essa configuracao e apenas local, nao representa senha real nem politica produtiva de identidade.
 
@@ -174,7 +175,9 @@ Para inspecionar as claims sem colar o token em servicos externos, decodifique l
 - `resource_access.petshop-api.roles` contendo `petshop.access`;
 - `tenant_id` igual a `11111111-1111-4111-8111-111111111111`.
 
-A API valida tokens Bearer emitidos pelo realm local, exige audience `petshop-api`, lifetime valido, assinatura via metadata/JWKS do Keycloak e a policy explicita `PetShop.DiagnosticsAccess` para o endpoint `/diagnostics`. Essa policy exige usuario autenticado, claim `tenant_id` presente e client role `petshop.access` em `resource_access.petshop-api.roles`. O endpoint nao retorna token nem dump de claims.
+A API valida tokens Bearer emitidos pelo realm local, exige audience `petshop-api`, lifetime valido, assinatura via metadata/JWKS do Keycloak e a policy explicita `PetShop.DiagnosticsAccess` para o endpoint `/diagnostics`. Depois de `UseAuthentication`, a API resolve um `ITenantContext` scoped exclusivamente da claim `tenant_id`; claim ausente, vazia, duplicada ou invalida resulta em `403 Forbidden`, sem tenant padrao ou fallback. A policy exige usuario autenticado, tenant valido e client role `petshop.access` em `resource_access.petshop-api.roles`. O endpoint retorna o `tenantId` autenticado e nao retorna token nem dump de claims.
+
+Jobs, workers e processamentos futuros sem `HttpContext` nao devem tentar acessar claims. O item de trabalho tenant-owned deve carregar o `tenant_id` previamente validado e abrir a execucao com um contexto explicito, como `ExplicitTenantContext`, dentro do escopo daquele tenant.
 
 Smoke test local, depois que a API e o Keycloak estiverem rodando:
 
@@ -182,7 +185,7 @@ Smoke test local, depois que a API e o Keycloak estiverem rodando:
 ./scripts/smoke-keycloak-auth.ps1 -ApiBaseUrl "http://localhost:5000"
 ```
 
-Se a API estiver em outra URL, informe o endereco exibido pelo AppHost em `-ApiBaseUrl`. O smoke test valida `401` sem token e `200` com um access token local autorizado.
+Se a API estiver em outra URL, informe o endereco exibido pelo AppHost em `-ApiBaseUrl`. O smoke test valida `401` sem token, `200` com um access token local autorizado, preservacao de `X-Correlation-Id` e tenant autenticado.
 
 Volumes persistentes:
 
@@ -206,8 +209,8 @@ Separacao local/producao:
 
 ## Escopo ainda nao implementado
 
-- Implementacao tecnica de multitenancy.
-- Query filters, interceptors de tenant e Row-Level Security.
+- Entidades e modulos de negocio tenant-owned.
+- Query filters, interceptors de tenant, enforcement persistente e Row-Level Security.
 - OpenTelemetry completo com exporter OTLP.
 - Modulos de negocio como cadastro, pets, agenda, atendimento ou cobranca.
 - Broker, Redis, API Gateway, microsservicos ou multiplos bancos.

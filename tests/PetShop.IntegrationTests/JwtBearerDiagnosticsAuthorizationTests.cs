@@ -18,7 +18,8 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
     private const string Audience = "petshop-api";
     private const string RoleClientId = "petshop-api";
     private const string RequiredRole = "petshop.access";
-    private const string TenantId = "11111111-1111-4111-8111-111111111111";
+    private const string TenantA = "11111111-1111-4111-8111-111111111111";
+    private const string TenantB = "22222222-2222-4222-8222-222222222222";
     private const string KeyId = "integration-test-key";
     private const string DummyConnectionString =
         "Host=localhost;Port=5432;Database=petshop;Username=petshop;Password=petshop";
@@ -102,10 +103,36 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
     }
 
     [Fact]
-    public async Task Diagnostics_WithValidAuthorizedToken_ReturnsOkWithoutClaimsDump()
+    public async Task Diagnostics_WithValidAuthorizedTokenWithoutTenant_ReturnsForbidden()
     {
         using HttpClient client = _factory.CreateClient();
-        string token = CreateToken(roles: [RequiredRole]);
+        string token = CreateToken(includeTenantClaim: false);
+
+        using HttpResponseMessage response = await SendDiagnosticsAsync(client, token);
+
+        AssertStatusCode(HttpStatusCode.Forbidden, response);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("not-a-guid")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    public async Task Diagnostics_WithValidAuthorizedTokenWithInvalidTenant_ReturnsForbidden(string tenantId)
+    {
+        using HttpClient client = _factory.CreateClient();
+        string token = CreateToken(tenantId: tenantId);
+
+        using HttpResponseMessage response = await SendDiagnosticsAsync(client, token);
+
+        AssertStatusCode(HttpStatusCode.Forbidden, response);
+    }
+
+    [Fact]
+    public async Task Diagnostics_WithValidAuthorizedToken_ReturnsCurrentTenantContextWithoutClaimsDump()
+    {
+        using HttpClient client = _factory.CreateClient();
+        string token = CreateToken(roles: [RequiredRole], tenantId: TenantA);
         const string correlationId = "75db3340-c2e7-4dd5-886b-6c39530bd88c";
 
         using HttpResponseMessage response = await SendDiagnosticsAsync(client, token, correlationId);
@@ -116,7 +143,57 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
         Assert.NotNull(body);
         Assert.Equal("PetShop.Api", body.Service);
         Assert.Equal("Development", body.Environment);
+        Assert.Equal(TenantA, body.TenantId);
         Assert.Equal(correlationId, body.CorrelationId);
+    }
+
+    [Fact]
+    public async Task Diagnostics_WithTenantOverrideAttempts_ReturnsClaimTenant()
+    {
+        using HttpClient client = _factory.CreateClient();
+        string token = CreateToken(tenantId: TenantB);
+
+        using HttpResponseMessage response = await SendDiagnosticsAsync(
+            client,
+            token,
+            tenantOverride: TenantA);
+
+        AssertStatusCode(HttpStatusCode.OK, response);
+        DiagnosticsResponse? body = await response.Content.ReadFromJsonAsync<DiagnosticsResponse>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotNull(body);
+        Assert.Equal(TenantB, body.TenantId);
+    }
+
+    [Fact]
+    public async Task Diagnostics_WithTwoTenantsInParallel_DoesNotLeakTenantContext()
+    {
+        using HttpClient client = _factory.CreateClient();
+        string tokenA = CreateToken(tenantId: TenantA);
+        string tokenB = CreateToken(tenantId: TenantB);
+
+        Task<DiagnosticsResponse>[] requests = Enumerable
+            .Range(0, 20)
+            .Select(index =>
+            {
+                string expectedTenant = index % 2 == 0 ? TenantA : TenantB;
+                string token = index % 2 == 0 ? tokenA : tokenB;
+                string overrideTenant = index % 2 == 0 ? TenantB : TenantA;
+                string correlationId = Guid.NewGuid().ToString();
+
+                return SendAndReadDiagnosticsAsync(
+                    client,
+                    token,
+                    correlationId,
+                    overrideTenant,
+                    expectedTenant);
+            })
+            .ToArray();
+
+        DiagnosticsResponse[] responses = await Task.WhenAll(requests);
+
+        Assert.Equal(10, responses.Count(response => response.TenantId == TenantA));
+        Assert.Equal(10, responses.Count(response => response.TenantId == TenantB));
     }
 
     public void Dispose()
@@ -128,16 +205,50 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
     private static async Task<HttpResponseMessage> SendDiagnosticsAsync(
         HttpClient client,
         string token,
-        string? correlationId = null)
+        string? correlationId = null,
+        string? tenantOverride = null)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics");
+        string uri = tenantOverride is null
+            ? "/diagnostics"
+            : $"/diagnostics?tenant_id={Uri.EscapeDataString(tenantOverride)}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         if (correlationId is not null)
         {
             request.Headers.TryAddWithoutValidation("X-Correlation-Id", correlationId);
         }
 
+        if (tenantOverride is not null)
+        {
+            request.Headers.TryAddWithoutValidation("tenant_id", tenantOverride);
+            request.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantOverride);
+        }
+
         return await client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
+    private static async Task<DiagnosticsResponse> SendAndReadDiagnosticsAsync(
+        HttpClient client,
+        string token,
+        string correlationId,
+        string tenantOverride,
+        string expectedTenant)
+    {
+        using HttpResponseMessage response = await SendDiagnosticsAsync(
+            client,
+            token,
+            correlationId,
+            tenantOverride);
+
+        AssertStatusCode(HttpStatusCode.OK, response);
+        DiagnosticsResponse? body = await response.Content.ReadFromJsonAsync<DiagnosticsResponse>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotNull(body);
+        Assert.Equal(expectedTenant, body.TenantId);
+        Assert.Equal(correlationId, body.CorrelationId);
+
+        return body;
     }
 
     private static void AssertStatusCode(
@@ -169,9 +280,11 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
         string issuer = Issuer,
         string audience = Audience,
         DateTimeOffset? expiresAt = null,
-        IReadOnlyCollection<string>? roles = null)
+        IReadOnlyCollection<string>? roles = null,
+        string tenantId = TenantA,
+        bool includeTenantClaim = true)
     {
-        return CreateTokenCore(_rsa, issuer, audience, expiresAt, roles, KeyId);
+        return CreateTokenCore(_rsa, issuer, audience, expiresAt, roles, tenantId, includeTenantClaim, KeyId);
     }
 
     private static string CreateTokenCore(
@@ -180,6 +293,8 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
         string audience,
         DateTimeOffset? expiresAt,
         IReadOnlyCollection<string>? roles,
+        string tenantId,
+        bool includeTenantClaim,
         string keyId = KeyId)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -197,7 +312,6 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
             ["aud"] = audience,
             ["sub"] = "local-petshop-user",
             ["preferred_username"] = "local.petshop.user",
-            ["tenant_id"] = TenantId,
             ["iat"] = now.ToUnixTimeSeconds(),
             ["nbf"] = now.AddMinutes(-1).ToUnixTimeSeconds(),
             ["exp"] = expires.ToUnixTimeSeconds(),
@@ -209,6 +323,11 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
                 }
             }
         };
+
+        if (includeTenantClaim)
+        {
+            payload["tenant_id"] = tenantId;
+        }
 
         string encodedHeader = Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(header));
         string encodedPayload = Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(payload));
@@ -231,6 +350,8 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
             Audience,
             DateTimeOffset.UtcNow.AddMinutes(10),
             [RequiredRole],
+            TenantA,
+            includeTenantClaim: true,
             KeyId);
     }
 
@@ -245,6 +366,7 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
     private sealed record DiagnosticsResponse(
         string Service,
         string Environment,
+        string TenantId,
         string? CorrelationId);
 
     public enum InvalidTokenKind

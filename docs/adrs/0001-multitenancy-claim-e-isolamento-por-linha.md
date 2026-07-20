@@ -28,6 +28,8 @@ O valor de `tenant_id` recebido em body, query string, rota ou header não é fo
 
 Se a claim estiver ausente, vazia ou inválida, a operação deve ser rejeitada. Não haverá tenant padrão nem fallback silencioso.
 
+Na Entrega 0, o tipo concreto de `TenantId` no código passa a ser um identificador forte baseado em `Guid`. Quando houver persistência de dados de negócio, a representação esperada no PostgreSQL será `uuid`.
+
 ### Persistência
 
 Todas as tabelas de negócio devem possuir a coluna obrigatória:
@@ -132,7 +134,6 @@ Não adotado neste momento. Oferece isolamento físico maior, mas adiciona custo
 
 Esta ADR não define:
 
-- o tipo concreto de `TenantId` no código e no PostgreSQL;
 - o provedor de identidade;
 - o mecanismo de autenticação usado no ambiente local;
 - o mecanismo técnico de enforcement no EF Core;

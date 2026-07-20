@@ -5,7 +5,8 @@ param(
     [string] $Realm = "petshop-local",
     [string] $ClientId = "petshop-api",
     [string] $Username = "local.petshop.user",
-    [string] $Password = "local-dev-password"
+    [string] $Password = "local-dev-password",
+    [string] $ExpectedTenantId = "11111111-1111-4111-8111-111111111111"
 )
 
 $ErrorActionPreference = "Stop"
@@ -91,6 +92,10 @@ if ($body.service -ne "PetShop.Api") {
 
 if ($body.correlationId -ne $correlationId) {
     throw "Diagnostics response did not preserve X-Correlation-Id."
+}
+
+if ($body.tenantId -ne $ExpectedTenantId) {
+    throw "Diagnostics response did not expose the authenticated tenant context."
 }
 
 if ($authorizedResponse.Content -match "access_token|refresh_token|resource_access|tenant_id|preferred_username") {

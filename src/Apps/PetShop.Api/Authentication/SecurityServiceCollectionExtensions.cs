@@ -1,9 +1,7 @@
-using System.Security.Claims;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
-using PetShop.Observability.Propagation;
+using PetShop.Api.Tenancy;
 
 namespace PetShop.Api.Authentication;
 
@@ -52,7 +50,7 @@ internal static class SecurityServiceCollectionExtensions
                 {
                     policy.RequireAuthenticatedUser();
                     policy.RequireAssertion(context =>
-                        HasTenantClaim(context.User) &&
+                        TenantIdParser.TryGetTenantId(context.User, out _) == TenantClaimValidationError.None &&
                         KeycloakResourceAccess.HasClientRole(
                             context.User,
                             authentication.ResolvedRoleClientId,
@@ -60,12 +58,5 @@ internal static class SecurityServiceCollectionExtensions
                 });
 
         return services;
-    }
-
-    private static bool HasTenantClaim(ClaimsPrincipal user)
-    {
-        string? tenantId = user.FindFirst(PropagationHeaderNames.TenantId)?.Value;
-
-        return !string.IsNullOrWhiteSpace(tenantId);
     }
 }

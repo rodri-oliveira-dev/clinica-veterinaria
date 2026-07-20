@@ -75,7 +75,7 @@ public sealed class ProjectReferenceTests
                     .Descendants("ProjectReference")
                     .Select(reference => reference.Attribute("Include")?.Value)
                     .Where(value => !string.IsNullOrWhiteSpace(value))
-                    .Select(value => NormalizePath(Path.GetFullPath(value!, Path.GetDirectoryName(path)!)))
+                    .Select(value => ResolveProjectReferencePath(path, value!))
                     .ToArray()));
 
         return projects;
@@ -148,6 +148,15 @@ public sealed class ProjectReferenceTests
         return Path.GetFullPath(path)
             .Replace(Path.DirectorySeparatorChar, '/')
             .Replace(Path.AltDirectorySeparatorChar, '/');
+    }
+
+    private static string ResolveProjectReferencePath(string projectFilePath, string referencePath)
+    {
+        string platformReferencePath = referencePath
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+
+        return NormalizePath(Path.GetFullPath(platformReferencePath, Path.GetDirectoryName(projectFilePath)!));
     }
 
     private static string RelativePath(string repositoryRoot, string path)

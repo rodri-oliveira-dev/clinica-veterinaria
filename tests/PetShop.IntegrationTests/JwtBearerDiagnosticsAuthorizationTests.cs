@@ -67,12 +67,18 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
     public async Task Diagnostics_WithoutToken_ReturnsUnauthorized()
     {
         using HttpClient client = _factory.CreateClient();
+        const string correlationId = "0c822450-56e3-4ffd-9079-9d04e7e74dcb";
 
-        using HttpResponseMessage response = await client.GetAsync(
-            "/diagnostics",
-            TestContext.Current.CancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/diagnostics");
+        request.Headers.TryAddWithoutValidation("X-Correlation-Id", correlationId);
+        using HttpResponseMessage response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         AssertStatusCode(HttpStatusCode.Unauthorized, response);
+        await AssertProblemDetailsAsync(
+            response,
+            HttpStatusCode.Unauthorized,
+            "auth.unauthenticated",
+            correlationId);
     }
 
     [Theory]
@@ -100,6 +106,7 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
         using HttpResponseMessage response = await SendDiagnosticsAsync(client, token);
 
         AssertStatusCode(HttpStatusCode.Forbidden, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "auth.forbidden");
     }
 
     [Fact]
@@ -111,6 +118,7 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
         using HttpResponseMessage response = await SendDiagnosticsAsync(client, token);
 
         AssertStatusCode(HttpStatusCode.Forbidden, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "identity.tenant_required");
     }
 
     [Theory]
@@ -126,6 +134,7 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
         using HttpResponseMessage response = await SendDiagnosticsAsync(client, token);
 
         AssertStatusCode(HttpStatusCode.Forbidden, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "identity.tenant_required");
     }
 
     [Fact]
@@ -261,6 +270,35 @@ public sealed class JwtBearerDiagnosticsAuthorizationTests : IDisposable
             response.StatusCode == expected,
             $"Expected HTTP {(int)expected} {expected}, got {(int)response.StatusCode} {response.StatusCode}. " +
             $"WWW-Authenticate: {challenge}");
+    }
+
+    private static async Task AssertProblemDetailsAsync(
+        HttpResponseMessage response,
+        HttpStatusCode statusCode,
+        string code,
+        string? expectedCorrelationId = null)
+    {
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        using JsonDocument document = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken),
+            cancellationToken: TestContext.Current.CancellationToken);
+        JsonElement root = document.RootElement;
+
+        Assert.Equal((int)statusCode, root.GetProperty("status").GetInt32());
+        Assert.Equal(code, root.GetProperty("code").GetString());
+        Assert.True(Guid.TryParse(root.GetProperty("correlationId").GetString(), out _));
+
+        if (expectedCorrelationId is not null)
+        {
+            Assert.Equal(expectedCorrelationId, root.GetProperty("correlationId").GetString());
+        }
+
+        string body = root.ToString();
+        Assert.DoesNotContain("stack", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("connection string", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("token", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("claims", body, StringComparison.OrdinalIgnoreCase);
     }
 
     private string CreateInvalidToken(InvalidTokenKind tokenKind)

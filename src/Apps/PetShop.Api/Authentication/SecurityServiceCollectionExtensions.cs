@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
+using PetShop.Api.HttpApi;
 using PetShop.Api.Tenancy;
 
 namespace PetShop.Api.Authentication;
@@ -28,7 +29,7 @@ internal static class SecurityServiceCollectionExtensions
                 options.Audience = authentication.ResolvedAudience;
                 options.MapInboundClaims = false;
                 options.RequireHttpsMetadata = authentication.ResolveRequireHttpsMetadata(environment);
-                options.IncludeErrorDetails = environment.IsDevelopment();
+                options.IncludeErrorDetails = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -39,6 +40,27 @@ internal static class SecurityServiceCollectionExtensions
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromMinutes(1),
                     NameClaimType = "preferred_username"
+                };
+                options.Events = new JwtBearerEvents
+                {
+                    OnChallenge = async context =>
+                    {
+                        context.HandleResponse();
+                        context.Response.Headers.WWWAuthenticate = "Bearer";
+
+                        await ApiProblemDetailsWriter.WriteAsync(
+                            context.HttpContext,
+                            StatusCodes.Status401Unauthorized,
+                            "Authentication is required.",
+                            "A valid Bearer access credential is required to access this resource.",
+                            ApiErrorCodes.Unauthenticated);
+                    },
+                    OnForbidden = context => ApiProblemDetailsWriter.WriteAsync(
+                        context.HttpContext,
+                        StatusCodes.Status403Forbidden,
+                        "Access is forbidden.",
+                        "The authenticated principal is not authorized to access this resource.",
+                        ApiErrorCodes.Forbidden)
                 };
             });
 

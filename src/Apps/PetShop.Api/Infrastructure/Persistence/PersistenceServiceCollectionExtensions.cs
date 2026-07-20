@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace PetShop.Api.Infrastructure.Persistence;
 
@@ -19,7 +20,8 @@ public static class PersistenceServiceCollectionExtensions
                 GetConnectionString(serviceProvider.GetRequiredService<IConfiguration>())));
 
         services.AddHealthChecks()
-            .AddDbContextCheck<PetShopDbContext>("postgresql");
+            .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
+            .AddDbContextCheck<PetShopDbContext>("postgresql", tags: ["ready"]);
 
         return services;
     }

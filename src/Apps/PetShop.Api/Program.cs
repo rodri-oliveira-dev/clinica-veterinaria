@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+
 using PetShop.Api.Authentication;
 using PetShop.Api.Diagnostics;
+using PetShop.Api.HttpApi;
 using PetShop.Api.Infrastructure.Persistence;
 using PetShop.Api.Observability;
 using PetShop.Api.Tenancy;
@@ -9,6 +12,7 @@ using PetShop.Observability.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddPetShopHttpApiContracts();
 builder.Services.AddPetShopPersistence(builder.Configuration);
 builder.Services.AddPetShopObservabilityPropagation();
 builder.AddPetShopOpenTelemetry();
@@ -17,12 +21,36 @@ builder.Services.AddPetShopTenantContext();
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
 app.UseAuthentication();
-app.UsePetShopTenantContext();
 app.UsePetShopObservabilityContext();
+app.UsePetShopTenantContext();
+app.UseStatusCodePages(ApiProblemDetailsWriter.WriteStatusCodeProblemAsync);
 app.UseAuthorization();
 
-app.MapHealthChecks("/health").WithName("Health");
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi().AllowAnonymous();
+}
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+    {
+        Predicate = registration => registration.Tags.Contains("live", StringComparer.Ordinal)
+    })
+    .WithName("Liveness")
+    .AllowAnonymous();
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+    {
+        Predicate = registration => registration.Tags.Contains("ready", StringComparer.Ordinal)
+    })
+    .WithName("Readiness")
+    .AllowAnonymous();
+app.MapHealthChecks("/health", new HealthCheckOptions
+    {
+        Predicate = registration => registration.Tags.Contains("ready", StringComparer.Ordinal)
+    })
+    .WithName("Health")
+    .AllowAnonymous();
 app.MapGet(
         "/diagnostics",
         (

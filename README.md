@@ -131,6 +131,46 @@ dotnet dotnet-ef migrations script --idempotent \
 
 Ao introduzir a primeira tabela de negocio, ela deve possuir `tenant_id` obrigatorio conforme a ADR-0001. Query filters, interceptors de tenant e Row-Level Security permanecem fora desta fundacao ate existir uma decisao especifica.
 
+## Contratos HTTP
+
+A API padroniza respostas de erro com `application/problem+json`. Quando aplicavel, o corpo contem:
+
+- `type`;
+- `title`;
+- `status`;
+- `detail`;
+- `instance`;
+- `code`;
+- `correlationId`.
+
+O backend nunca deve expor stack trace, SQL, connection string, token, segredo ou dump de claims em respostas de erro. O `correlationId` usa o `X-Correlation-Id` recebido quando ele for um GUID valido; caso contrario, a API gera um novo valor e o devolve no header de resposta.
+
+Codigos estaveis documentados:
+
+| HTTP | `code` | Semantica |
+| --- | --- | --- |
+| 400 | `request.invalid` | Entrada invalida, payload malformado ou contrato HTTP nao processavel. |
+| 401 | `auth.unauthenticated` | Bearer token ausente, malformado, expirado, com issuer, audience ou assinatura invalidos. |
+| 403 | `auth.forbidden` | Principal autenticado sem permissao para o recurso. |
+| 403 | `identity.tenant_required` | Token autenticado sem exatamente uma claim `tenant_id` valida. |
+| 404 | `resource.not_found` | Recurso inexistente ou nao visivel no escopo atual. |
+| 409 | `resource.conflict` | Conflito de estado futuro, como concorrencia de agenda. |
+| 500 | `server.unexpected` | Falha inesperada, sem detalhes internos no contrato publico. |
+
+Em `Development`, o documento OpenAPI fica disponivel em:
+
+```text
+/openapi/v1.json
+```
+
+O documento descreve JWT Bearer, o header opcional `X-Correlation-Id` e respostas `application/problem+json`.
+
+Health checks:
+
+- `/health/live`: liveness local, nao depende de PostgreSQL nem de servicos externos;
+- `/health/ready`: readiness, considera o PostgreSQL;
+- `/health`: alias de readiness preservado para compatibilidade local.
+
 ## Ambiente local Aspire
 
 Recursos locais:

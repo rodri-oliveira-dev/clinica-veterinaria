@@ -1,3 +1,5 @@
+using PetShop.Api.HttpApi;
+
 namespace PetShop.Api.Tenancy;
 
 internal sealed class HttpTenantContextMiddleware
@@ -36,11 +38,11 @@ internal sealed class HttpTenantContextMiddleware
 
     private static async Task RejectMissingTenantAsync(HttpContext context)
     {
-        IResult result = Results.Problem(
-            title: "Authenticated tenant context is required.",
-            detail: "The access token must contain exactly one valid tenant_id claim.",
-            statusCode: StatusCodes.Status403Forbidden);
-
-        await result.ExecuteAsync(context);
+        await ApiProblemDetailsWriter.WriteAsync(
+            context,
+            StatusCodes.Status403Forbidden,
+            "Authenticated tenant context is required.",
+            "The authenticated principal must contain exactly one valid tenant_id claim.",
+            ApiErrorCodes.TenantRequired);
     }
 }

@@ -1,10 +1,18 @@
 <Solution>
-  <Folder Name="/src/" />
+  <Folder Name="/src/">
+    <Project Path="src/AppHost/PetShop.AppHost/PetShop.AppHost.csproj" />
+    <Project Path="src/Apps/PetShop.Api/PetShop.Api.csproj" />
+  </Folder>
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/PetShop.Observability.AspNetCore/PetShop.Observability.AspNetCore.csproj" />
     <Project Path="src/BuildingBlocks/PetShop.Observability/PetShop.Observability.csproj" />
   </Folder>
-  <Folder Name="/tests/" />
+  <Folder Name="/tests/">
+    <Project Path="tests/PetShop.AppHost.Tests/PetShop.AppHost.Tests.csproj" />
+    <Project Path="tests/PetShop.ArchitectureTests/PetShop.ArchitectureTests.csproj" />
+    <Project Path="tests/PetShop.IntegrationTests/PetShop.IntegrationTests.csproj" />
+    <Project Path="tests/PetShop.UnitTests/PetShop.UnitTests.csproj" />
+  </Folder>
   <Folder Name="/tests/BuildingBlocks/">
     <Project Path="tests/BuildingBlocks/PetShop.Observability.Tests/PetShop.Observability.Tests.csproj" />
   </Folder>

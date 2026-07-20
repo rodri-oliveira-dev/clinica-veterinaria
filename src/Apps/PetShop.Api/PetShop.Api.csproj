@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>PetShop.Api</RootNamespace>
+    <AssemblyName>PetShop.Api</AssemblyName>
+    <Description>HTTP API do monolito modular PetShop.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\PetShop.Observability\PetShop.Observability.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\PetShop.Observability.AspNetCore\PetShop.Observability.AspNetCore.csproj" />
+  </ItemGroup>
+</Project>

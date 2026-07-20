@@ -40,6 +40,7 @@ public sealed class TutoresModuleBoundaryTests
 
         Assert.Equal(
             [
+                "PetShop.Tutores.Infrastructure.ModuloTutoresPersistenceExtensions",
                 "PetShop.Tutores.ModuloTutoresEndpointRouteBuilderExtensions",
                 "PetShop.Tutores.ModuloTutoresServiceCollectionExtensions"
             ],

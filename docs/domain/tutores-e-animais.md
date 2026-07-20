@@ -106,7 +106,7 @@ src/Modules/Tutores/PetShop.Tutores/
 
 Essa fundacao usa pastas conceituais `Domain`, `Application`, `Infrastructure` e `Api`, mas preserva superficie publica minima. A API carrega o modulo somente pelos pontos de composicao `AddModuloTutores` e `MapModuloTutores`.
 
-Ainda nao existem entidades completas, tabelas funcionais, migrations, repositories, contratos HTTP de caso de uso, endpoints funcionais ou eventos de integracao. Quando houver persistencia, os dados de tutores, contatos, animais e vinculos devem continuar tenant-owned conforme a ADR-0001.
+O SDD 15 persiste `Tutor` em PostgreSQL usando o `PetShopDbContext` tecnico da API como contexto de migration do monolito e mapeamento localizado no modulo `PetShop.Tutores`. Ainda nao existem contratos HTTP de caso de uso, endpoints funcionais, repositories, entidades de animal, vinculos ou eventos de integracao.
 
 ## Invariantes conhecidas
 
@@ -137,6 +137,42 @@ Campos e regras iniciais:
 - alteracoes de cadastro preservam identidade, tenant e `CriadoEm`, e atualizam `AtualizadoEm`.
 
 CPF, e-mail e telefone sao dados pessoais do tutor. O modelo nao registra logs nem eventos com documento completo nesta etapa. Finalidade, retencao, mascaramento em contratos HTTP e fluxos de direitos do titular continuam pendentes para os SDDs que criarem persistencia, API ou exportacao desses dados.
+
+## Persistencia inicial de Tutor
+
+O SDD 15 introduz a tabela funcional `tutores`, owned pelo modulo Cadastro de Tutores e Animais.
+
+Colunas:
+
+- `id`;
+- `tenant_id NOT NULL`;
+- `nome`;
+- `documento`;
+- `email`;
+- `telefone`;
+- `situacao`;
+- `criado_em`;
+- `atualizado_em`;
+- `inativado_em`.
+
+Decisoes:
+
+- CPF e persistido normalizado em `documento`.
+- CPF e unico somente dentro do tenant por `(tenant_id, documento)`.
+- O mesmo CPF pode existir em tenants diferentes.
+- `TutorId`, `TenantId`, `NomeDoTutor`, `Cpf`, `Email`, `Telefone` e `SituacaoDoTutor` usam conversoes EF Core no mapeamento do modulo.
+- Consultas comuns usam query filter por tenant atual.
+- Escritas usam guarda em `SaveChanges` para exigir tenant resolvido e impedir alteracao de tutor pertencente a outro tenant.
+- Sem tenant resolvido, dados de tutores nao devem ser materializados por consultas comuns.
+
+Trade-off registrado:
+
+- Foi mantido um unico `PetShopDbContext` tecnico para migrations do banco compartilhado do monolito, carregando uma extensao publica de persistencia do modulo. Isso evita criar outro contexto/migration history antes de haver necessidade, mas exige que a API conheca o ponto de composicao EF do modulo. A entidade `Tutor` permanece interna ao modulo e o Domain continua sem dependencia de EF Core, ASP.NET Core, JWT, claims ou `HttpContext`.
+
+Privacidade:
+
+- CPF, e-mail e telefone sao dados pessoais. Nesta etapa eles sao persistidos para finalidade operacional de cadastro e contato do tutor pela clinica dentro do tenant.
+- Ainda nao foram definidos mascaramento em respostas HTTP, retencao, exportacao, eliminacao, bloqueio ou fluxos de direitos do titular, pois nao ha API publica ou exportacao nesta fatia.
 
 ## Fluxos da Entrega 1
 
@@ -188,7 +224,7 @@ flowchart LR
 - Se `Situacao` sera modelada como estado explicito ou derivada de regras simples.
 - Quais campos de tutor, contato e animal serao obrigatorios nos contratos HTTP.
 - Quais regras de unicidade local ao tenant serao exigidas.
-- Se a persistencia usara um `DbContext` especifico do modulo ou o `PetShopDbContext` tecnico existente evoluira primeiro.
+- Se a persistencia futura de animais e vinculos continuara no `PetShopDbContext` tecnico ou exigira um `DbContext` especifico do modulo.
 - Se outros modulos precisarao de contratos de leitura ou projecoes locais sobre tutores e animais.
 
 ## Criterios para revisao da fronteira

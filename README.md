@@ -27,7 +27,7 @@ tests/
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
-- `PetShop.Tutores`: fundacao do modulo Cadastro de Tutores e Animais, carregada pela API por `AddModuloTutores` e `MapModuloTutores`, ainda sem entidade persistida, migration, repository ou endpoint funcional.
+- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui o aggregate `Tutor` persistido em PostgreSQL, ainda sem endpoints funcionais ou repository generico.
 
 ## Decisoes preservadas
 
@@ -39,7 +39,7 @@ tests/
 - HTTP usa `X-Correlation-Id`.
 - `PetShop.Observability` nao depende de ASP.NET Core.
 - O AppHost e apenas composicao local; ele sobe PostgreSQL e Keycloak para desenvolvimento, incluindo realm e client locais, sem definir broker, cache ou gateway.
-- A primeira fatia de negocio documentada e `Cadastro de Tutores e Animais`, mantendo tutor, animal e vinculo no mesmo Bounded Context inicial e materializada inicialmente em um unico assembly de modulo.
+- A primeira fatia de negocio documentada e `Cadastro de Tutores e Animais`, mantendo tutor, animal e vinculo no mesmo Bounded Context inicial e materializada inicialmente em um unico assembly de modulo. A tabela `tutores` pertence a esse modulo.
 
 As decisoes completas estao em:
 
@@ -142,7 +142,7 @@ Esse comando inicia a API, o PostgreSQL e o Keycloak e disponibiliza o Aspire Da
 
 ## Persistencia PostgreSQL e EF Core
 
-A API registra um `PetShopDbContext` tecnico minimo em `src/Apps/PetShop.Api/Infrastructure/Persistence/`. Ele nao possui `DbSet`, entidades de negocio, repositories genericos ou Unit of Work customizado.
+A API registra um `PetShopDbContext` tecnico em `src/Apps/PetShop.Api/Infrastructure/Persistence/`. Ele centraliza a migration do banco compartilhado do monolito e carrega o mapeamento do modulo `PetShop.Tutores` por uma extensao publica de composicao, sem expor entidades de dominio como contrato entre modulos.
 
 Configuracao:
 
@@ -152,6 +152,20 @@ Configuracao:
 - O provider EF Core e `Npgsql.EntityFrameworkCore.PostgreSQL`.
 - A convencao relacional usa `snake_case` e a tabela de historico de migrations se chama `__ef_migrations_history`.
 - O endpoint `/health` inclui o check `postgresql`, baseado no `PetShopDbContext`.
+
+Tabela funcional introduzida:
+
+- `tutores`: possui `id`, `tenant_id NOT NULL`, `nome`, `documento`, `email`, `telefone`, `situacao`, `criado_em`, `atualizado_em` e `inativado_em`.
+- `documento` armazena CPF normalizado quando informado.
+- A unicidade de CPF e local ao tenant pelo indice unico `(tenant_id, documento)`, permitindo o mesmo CPF em tenants diferentes.
+- Constraints no banco impedem `id` e `tenant_id` vazios, situacao fora do dominio conhecido, documento/telefone com tamanho invalido e tutor sem contato operacional.
+
+Estrategia multitenant da persistencia de tutores:
+
+- O tenant continua vindo exclusivamente do `ITenantContext` resolvido da claim `tenant_id` autenticada.
+- O `PetShopDbContext` aplica query filter parametrizado por contexto para `Tutor`; sem tenant resolvido, consultas comuns nao retornam tutores.
+- `SaveChanges` bloqueia inclusao, alteracao ou exclusao de tutores quando nao houver tenant resolvido ou quando o tenant da entidade divergir do tenant autenticado.
+- A estrategia combina filtro de leitura, guarda de escrita e constraints de banco. O trade-off e que o `PetShopDbContext` tecnico conhece a extensao de persistencia do modulo; em troca, a entidade `Tutor` permanece interna ao modulo e o Domain nao referencia EF Core.
 
 Comandos de migrations:
 
@@ -186,7 +200,7 @@ dotnet ef migrations script --idempotent \
   --output ./artifacts/sql/petshop-migrations.sql
 ```
 
-Ao introduzir a primeira tabela de negocio, ela deve possuir `tenant_id` obrigatorio conforme a ADR-0001. Query filters, interceptors de tenant e Row-Level Security permanecem fora desta fundacao ate existir uma decisao especifica.
+Novas tabelas de negocio devem possuir `tenant_id` obrigatorio conforme a ADR-0001. Row-Level Security permanece fora desta fundacao ate existir uma decisao especifica.
 
 ## Contratos HTTP
 
@@ -434,8 +448,8 @@ Cobertura e usada como sinal de risco. Nao ha threshold artificial nesta entrega
 
 ## Escopo ainda nao implementado
 
-- Entidades de negocio tenant-owned.
-- Implementacao funcional de cadastro de tutores e animais, ja documentada em `docs/domain/tutores-e-animais.md`.
-- Query filters, interceptors de tenant, enforcement persistente e Row-Level Security.
+- Endpoints funcionais de cadastro de tutores e animais, ja documentados em `docs/domain/tutores-e-animais.md`.
+- Persistencia de animais e vinculos.
+- Row-Level Security.
 - Outros modulos de negocio como agenda, atendimento ou cobranca.
 - Broker, Redis, API Gateway, microsservicos ou multiplos bancos.

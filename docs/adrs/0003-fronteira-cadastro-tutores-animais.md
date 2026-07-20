@@ -73,8 +73,8 @@ Rejeitada. A fronteira nao deve virar um deposito generico de cadastros. Ela cob
 
 - Contratos HTTP, requests e responses.
 - Entidades, aggregates, Value Objects e invariantes detalhadas.
-- Modelo de persistencia, migrations e constraints.
-- Mecanismo tecnico de enforcement de tenant em queries e writes.
+- Persistencia futura de animais e vinculos.
+- Necessidade futura de `DbContext` especifico do modulo caso o contexto tecnico compartilhado deixe de ser suficiente.
 - Necessidade de `Responsavel principal` ou `Situacao` como conceitos explicitos.
 - Contratos futuros para agenda, atendimento, faturamento ou notificacoes.
 
@@ -89,6 +89,8 @@ src/Modules/Tutores/PetShop.Tutores/
 O assembly representa a capacidade Cadastro de Tutores e Animais, com pastas conceituais `Domain`, `Application`, `Infrastructure` e `Api`. A superficie publica fica limitada aos pontos de composicao `AddModuloTutores` e `MapModuloTutores`, usados pela API do monolito.
 
 Essa implementacao nao cria entidade completa, tabela funcional, migration, repository, contrato HTTP de caso de uso, endpoint funcional ou evento de integracao. As proximas decisoes de persistencia, contratos e invariantes continuam pendentes.
+
+No SDD 15, o aggregate `Tutor` passou a ser persistido em PostgreSQL pela tabela `tutores`, owned por este modulo. A estrategia inicial usa o `PetShopDbContext` tecnico da API como contexto de migrations do monolito e uma extensao publica de persistencia do modulo para aplicar o mapeamento EF Core. O isolamento multitenant combina `tenant_id NOT NULL`, indice unico `(tenant_id, documento)`, query filter parametrizado pelo tenant atual e guarda de `SaveChanges` contra escrita sem tenant resolvido ou com tenant divergente. Essa decisao nao cria endpoint funcional, repository generico, tabela de animais, eventos de integracao, RLS ou contexto de banco separado.
 
 ## Relacao com codigo, testes e documentacao
 

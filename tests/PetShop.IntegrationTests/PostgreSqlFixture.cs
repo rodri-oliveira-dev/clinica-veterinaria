@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 
 using PetShop.Api.Infrastructure.Persistence;
+using PetShop.Api.Tenancy;
 
 using Testcontainers.PostgreSql;
 
@@ -32,5 +33,21 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
         PersistenceServiceCollectionExtensions.ConfigurePostgreSql(options, ConnectionString);
 
         return new PetShopDbContext(options.Options);
+    }
+
+    public PetShopDbContext CreateDbContext(Guid tenantId)
+    {
+        var options = new DbContextOptionsBuilder<PetShopDbContext>();
+        PersistenceServiceCollectionExtensions.ConfigurePostgreSql(options, ConnectionString);
+
+        return new PetShopDbContext(options.Options, new ExplicitTenantContext(new TenantId(tenantId)));
+    }
+
+    public async Task ResetDatabaseAsync()
+    {
+        await using PetShopDbContext dbContext = CreateDbContext();
+
+        await dbContext.Database.EnsureDeletedAsync(TestContext.Current.CancellationToken);
+        await dbContext.Database.MigrateAsync(TestContext.Current.CancellationToken);
     }
 }

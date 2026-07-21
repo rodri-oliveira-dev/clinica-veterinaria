@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 
 using PetShop.Api.HttpApi;
@@ -73,17 +74,24 @@ internal static class SecurityServiceCollectionExtensions
             .AddAuthorizationBuilder()
             .AddPolicy(
                 PetShopAuthorizationPolicies.DiagnosticsAccess,
-                policy =>
-                {
-                    policy.RequireAuthenticatedUser();
-                    policy.RequireAssertion(context =>
-                        TenantIdParser.TryGetTenantId(context.User, out _) == TenantClaimValidationError.None &&
-                        KeycloakResourceAccess.HasClientRole(
-                            context.User,
-                            authentication.ResolvedRoleClientId,
-                            authentication.ResolvedRequiredRole));
-                });
+                policy => ConfigureTenantScopedPolicy(policy, authentication))
+            .AddPolicy(
+                PetShopAuthorizationPolicies.TutoresAccess,
+                policy => ConfigureTenantScopedPolicy(policy, authentication));
 
         return services;
+    }
+
+    private static void ConfigureTenantScopedPolicy(
+        AuthorizationPolicyBuilder policy,
+        PetShopAuthenticationOptions authentication)
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+            TenantIdParser.TryGetTenantId(context.User, out _) == TenantClaimValidationError.None &&
+            KeycloakResourceAccess.HasClientRole(
+                context.User,
+                authentication.ResolvedRoleClientId,
+                authentication.ResolvedRequiredRole));
     }
 }

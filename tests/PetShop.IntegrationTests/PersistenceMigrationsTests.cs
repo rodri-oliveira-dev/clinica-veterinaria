@@ -16,6 +16,11 @@ public sealed class PersistenceMigrationsTests : IClassFixture<PostgreSqlFixture
     [Fact]
     public async Task Migrations_InitializeEmptyPostgreSqlDatabase()
     {
+        await using (PetShopDbContext resetContext = _postgresql.CreateDbContext())
+        {
+            await resetContext.Database.EnsureDeletedAsync(TestContext.Current.CancellationToken);
+        }
+
         await using PetShopDbContext dbContext = _postgresql.CreateDbContext();
 
         await dbContext.Database.MigrateAsync(TestContext.Current.CancellationToken);
@@ -26,7 +31,13 @@ public sealed class PersistenceMigrationsTests : IClassFixture<PostgreSqlFixture
             TestContext.Current.CancellationToken);
 
         Assert.Empty(pendingMigrations);
-        Assert.Single(appliedMigrations);
-        Assert.Contains("InitialPersistenceFoundation", appliedMigrations.Single(), StringComparison.Ordinal);
+        string[] migrationNames = appliedMigrations.ToArray();
+
+        Assert.Equal(5, migrationNames.Length);
+        Assert.Contains(migrationNames, migration => migration.Contains("InitialPersistenceFoundation", StringComparison.Ordinal));
+        Assert.Contains(migrationNames, migration => migration.Contains("AddTutoresPersistence", StringComparison.Ordinal));
+        Assert.Contains(migrationNames, migration => migration.Contains("AddAnimaisPersistence", StringComparison.Ordinal));
+        Assert.Contains(migrationNames, migration => migration.Contains("AddAnimalResponsibilityTransfers", StringComparison.Ordinal));
+        Assert.Contains(migrationNames, migration => migration.Contains("AddAnimalDeathLifecycle", StringComparison.Ordinal));
     }
 }

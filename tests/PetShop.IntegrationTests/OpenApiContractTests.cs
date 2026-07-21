@@ -5,6 +5,25 @@ namespace PetShop.IntegrationTests;
 
 public sealed class OpenApiContractTests : IDisposable
 {
+    private static readonly string[] FutureCapabilityContractTerms =
+    [
+        "autorizadorClinico",
+        "autorizacaoClinica",
+        "billing",
+        "consentimento",
+        "direitosDoTitular",
+        "healthRecord",
+        "legalRepresentative",
+        "medicalRecord",
+        "pagador",
+        "payer",
+        "prontuario",
+        "proprietarioLegal",
+        "representanteLegal",
+        "responsavelFinanceiro",
+        "titularDeDados"
+    ];
+
     private readonly PetShopApiFactory _factory = new(
         "Host=localhost;Port=1;Database=petshop;Username=petshop;Password=petshop");
 
@@ -49,6 +68,148 @@ public sealed class OpenApiContractTests : IDisposable
             .TryGetProperty("application/problem+json", out _));
         Assert.True(responses.TryGetProperty("403", out _));
         Assert.True(responses.TryGetProperty("500", out _));
+
+        JsonElement paths = root.GetProperty("paths");
+        AssertOpenApiDoesNotExposeTenantInput(root);
+        AssertOpenApiDoesNotExposeFutureCapabilityContracts(root);
+        Assert.True(paths.GetProperty("/tutores").TryGetProperty("post", out JsonElement cadastrarTutor));
+        Assert.True(paths.GetProperty("/tutores").TryGetProperty("get", out JsonElement pesquisarTutores));
+        Assert.True(paths.GetProperty("/tutores/{tutorId}").TryGetProperty("get", out JsonElement consultarTutor));
+        Assert.True(paths.GetProperty("/tutores/{tutorId}").TryGetProperty("put", out JsonElement atualizarTutor));
+        Assert.True(paths.GetProperty("/tutores/{tutorId}/inativacao").TryGetProperty("post", out JsonElement inativarTutor));
+        Assert.True(paths.GetProperty("/animais").TryGetProperty("post", out JsonElement cadastrarAnimal));
+        Assert.True(paths.GetProperty("/animais").TryGetProperty("get", out JsonElement pesquisarAnimais));
+        Assert.True(paths.GetProperty("/animais/{animalId}").TryGetProperty("get", out JsonElement consultarAnimal));
+        Assert.True(paths.GetProperty("/animais/{animalId}").TryGetProperty("put", out JsonElement atualizarAnimal));
+        Assert.True(paths
+            .GetProperty("/animais/{animalId}/transferencias-de-responsabilidade")
+            .TryGetProperty("post", out JsonElement transferirResponsabilidade));
+        Assert.True(paths.GetProperty("/animais/{animalId}/falecimento").TryGetProperty("post", out JsonElement registrarFalecimento));
+        Assert.True(paths.GetProperty("/animais/{animalId}/inativacao").TryGetProperty("post", out JsonElement inativarAnimal));
+
+        AssertSecuredModuleOperation(cadastrarTutor);
+        AssertSecuredModuleOperation(pesquisarTutores);
+        AssertSecuredModuleOperation(consultarTutor);
+        AssertSecuredModuleOperation(atualizarTutor);
+        AssertSecuredModuleOperation(inativarTutor);
+        AssertSecuredModuleOperation(cadastrarAnimal);
+        AssertSecuredModuleOperation(pesquisarAnimais);
+        AssertSecuredModuleOperation(consultarAnimal);
+        AssertSecuredModuleOperation(atualizarAnimal);
+        AssertSecuredModuleOperation(transferirResponsabilidade);
+        AssertSecuredModuleOperation(registrarFalecimento);
+        AssertSecuredModuleOperation(inativarAnimal);
+        Assert.Contains(
+            "TutorResponsavelId nao representa consentimento clinico",
+            cadastrarAnimal.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "A transferencia nao registra consentimento clinico",
+            transferirResponsabilidade.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Esse filtro nao consulta autorizacoes clinicas",
+            pesquisarAnimais.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
+        Assert.True(cadastrarAnimal.GetProperty("responses").TryGetProperty("409", out _));
+        Assert.Contains(
+            consultarTutor.GetProperty("parameters").EnumerateArray(),
+            parameter =>
+                parameter.GetProperty("name").GetString() == "tutorId" &&
+                parameter.GetProperty("in").GetString() == "path");
+        Assert.Contains(
+            consultarAnimal.GetProperty("parameters").EnumerateArray(),
+            parameter =>
+                parameter.GetProperty("name").GetString() == "animalId" &&
+                parameter.GetProperty("in").GetString() == "path");
+    }
+
+    private static void AssertSecuredModuleOperation(JsonElement operation)
+    {
+        Assert.True(operation.TryGetProperty("security", out JsonElement security));
+        Assert.NotEmpty(security.EnumerateArray());
+
+        JsonElement responses = operation.GetProperty("responses");
+        Assert.True(responses.TryGetProperty("401", out _));
+        Assert.True(responses.TryGetProperty("403", out _));
+        Assert.True(responses.TryGetProperty("500", out _));
+    }
+
+    private static void AssertOpenApiDoesNotExposeTenantInput(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (JsonProperty property in element.EnumerateObject())
+                {
+                    Assert.NotEqual("tenantId", property.Name);
+                    Assert.NotEqual("tenant_id", property.Name);
+                    if (property.NameEquals("name") && property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        Assert.NotEqual("tenantId", property.Value.GetString());
+                        Assert.NotEqual("tenant_id", property.Value.GetString());
+                    }
+
+                    AssertOpenApiDoesNotExposeTenantInput(property.Value);
+                }
+
+                break;
+            case JsonValueKind.Array:
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    AssertOpenApiDoesNotExposeTenantInput(item);
+                }
+
+                break;
+        }
+    }
+
+    private static void AssertOpenApiDoesNotExposeFutureCapabilityContracts(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (JsonProperty property in element.EnumerateObject())
+                {
+                    Assert.DoesNotContain(
+                        FutureCapabilityContractTerms,
+                        term => property.Name.Contains(term, StringComparison.Ordinal));
+
+                    if (IsContractNameProperty(property))
+                    {
+                        AssertDoesNotContainFutureCapabilityTerm(property.Value.GetString());
+                    }
+
+                    AssertOpenApiDoesNotExposeFutureCapabilityContracts(property.Value);
+                }
+
+                break;
+            case JsonValueKind.Array:
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    AssertOpenApiDoesNotExposeFutureCapabilityContracts(item);
+                }
+
+                break;
+        }
+    }
+
+    private static bool IsContractNameProperty(JsonProperty property) =>
+        property.Value.ValueKind == JsonValueKind.String &&
+        (property.NameEquals("name") ||
+         property.NameEquals("operationId") ||
+         property.NameEquals("$ref"));
+
+    private static void AssertDoesNotContainFutureCapabilityTerm(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        Assert.DoesNotContain(
+            FutureCapabilityContractTerms,
+            term => value.Contains(term, StringComparison.Ordinal));
     }
 
     public void Dispose()

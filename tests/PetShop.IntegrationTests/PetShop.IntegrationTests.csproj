@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Apps\PetShop.Api\PetShop.Api.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Tutores\PetShop.Tutores\PetShop.Tutores.csproj" />
   </ItemGroup>
 
   <ItemGroup>

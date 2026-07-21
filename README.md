@@ -12,6 +12,7 @@ src/
   Apps/PetShop.Api/
   BuildingBlocks/PetShop.Observability/
   BuildingBlocks/PetShop.Observability.AspNetCore/
+  Modules/Tutores/PetShop.Tutores/
 tests/
   PetShop.UnitTests/
   PetShop.ArchitectureTests/
@@ -26,6 +27,7 @@ tests/
 - `PetShop.AppHost`: composicao local Aspire contendo API, PostgreSQL e Keycloak declarativo para desenvolvimento.
 - `PetShop.Observability`: building block agnostico de ASP.NET Core para correlation, contexto W3C, HTTP de saida e mensageria futura.
 - `PetShop.Observability.AspNetCore`: adapter web para middleware de correlation e contexto de execucao.
+- `PetShop.Tutores`: modulo Cadastro de Tutores e Animais, carregado pela API por `AddModuloTutores`, `MapModuloTutores` e pela extensao de persistencia do modulo. Possui os aggregates `Tutor` e `Animal` persistidos em PostgreSQL, com endpoints HTTP para cadastro, consulta, atualizacao, pesquisa, inativacao e transferencia explicita de responsabilidade do animal. Ainda nao ha repository generico.
 
 ## Decisoes preservadas
 
@@ -37,11 +39,18 @@ tests/
 - HTTP usa `X-Correlation-Id`.
 - `PetShop.Observability` nao depende de ASP.NET Core.
 - O AppHost e apenas composicao local; ele sobe PostgreSQL e Keycloak para desenvolvimento, incluindo realm e client locais, sem definir broker, cache ou gateway.
+- A primeira fatia de negocio documentada e `Cadastro de Tutores e Animais`, mantendo tutor, animal e vinculo no mesmo Bounded Context inicial e materializada inicialmente em um unico assembly de modulo. As tabelas `tutores` e `animais` pertencem a esse modulo.
 
 As decisoes completas estao em:
 
 - `docs/adrs/0001-multitenancy-claim-e-isolamento-por-linha.md`
 - `docs/adrs/0002-library-propagacao-observabilidade.md`
+- `docs/adrs/0003-fronteira-cadastro-tutores-animais.md`
+- `docs/adrs/0004-relacao-tutores-animais-responsabilidade.md`
+- `docs/adrs/0005-ciclo-de-vida-animal.md`
+- `docs/adrs/0006-ownership-relacionamento-tutores-animais.md`
+- `docs/adrs/0007-revisao-bounded-contexts-modulos-aggregates.md`
+- `docs/adrs/0008-limites-semanticos-vinculo-tutor-animal.md`
 
 ## Requisitos
 
@@ -138,7 +147,7 @@ Esse comando inicia a API, o PostgreSQL e o Keycloak e disponibiliza o Aspire Da
 
 ## Persistencia PostgreSQL e EF Core
 
-A API registra um `PetShopDbContext` tecnico minimo em `src/Apps/PetShop.Api/Infrastructure/Persistence/`. Ele nao possui `DbSet`, entidades de negocio, repositories genericos ou Unit of Work customizado.
+A API registra um `PetShopDbContext` tecnico em `src/Apps/PetShop.Api/Infrastructure/Persistence/`. Ele centraliza a migration do banco compartilhado do monolito e carrega o mapeamento do modulo `PetShop.Tutores` por uma extensao publica de composicao, sem expor entidades de dominio como contrato entre modulos.
 
 Configuracao:
 
@@ -148,6 +157,33 @@ Configuracao:
 - O provider EF Core e `Npgsql.EntityFrameworkCore.PostgreSQL`.
 - A convencao relacional usa `snake_case` e a tabela de historico de migrations se chama `__ef_migrations_history`.
 - O endpoint `/health` inclui o check `postgresql`, baseado no `PetShopDbContext`.
+
+Tabela funcional introduzida:
+
+- `tutores`: possui `id`, `tenant_id NOT NULL`, `nome`, `documento`, `email`, `telefone`, `situacao`, `criado_em`, `atualizado_em` e `inativado_em`.
+- `documento` armazena CPF normalizado quando informado.
+- A unicidade de CPF e local ao tenant pelo indice unico `(tenant_id, documento)`, permitindo o mesmo CPF em tenants diferentes.
+- Constraints no banco impedem `id` e `tenant_id` vazios, situacao fora do dominio conhecido, documento/telefone com tamanho invalido e tutor sem contato operacional.
+- `animais`: possui `id`, `tenant_id NOT NULL`, `nome`, `especie`, `raca`, `sexo`, `data_de_nascimento`, `data_do_falecimento`, `cor_ou_pelagem`, `observacao_cadastral`, `situacao`, `tutor_responsavel_id`, `versao`, `criado_em`, `atualizado_em` e `inativado_em`.
+- O vinculo de animal com tutor usa foreign key composta `(tenant_id, tutor_responsavel_id)` para `tutores (tenant_id, id)`, porque os dois aggregates pertencem ao mesmo modulo owner nesta fase.
+- Constraints no banco impedem `id`, `tenant_id` e `tutor_responsavel_id` vazios, textos obrigatorios em branco, sexo/situacao fora do dominio conhecido, `data_do_falecimento` incoerente com a situacao e vinculo com tutor inexistente ou de outro tenant.
+- `historico_transferencias_animais`: possui `id`, `tenant_id NOT NULL`, `animal_id`, `tutor_anterior_id`, `tutor_novo_id`, `realizada_em`, `subject` e `motivo`. A tabela registra a trilha minima da transferencia de responsabilidade, sem token, claims completas, CPF, e-mail ou telefone.
+
+Estrategia multitenant da persistencia de tutores:
+
+- O tenant continua vindo exclusivamente do `ITenantContext` resolvido da claim `tenant_id` autenticada.
+- O `PetShopDbContext` aplica query filter parametrizado por contexto para `Tutor`; sem tenant resolvido, consultas comuns nao retornam tutores.
+- `SaveChanges` bloqueia inclusao, alteracao ou exclusao de tutores quando nao houver tenant resolvido ou quando o tenant da entidade divergir do tenant autenticado.
+- A estrategia combina filtro de leitura, guarda de escrita e constraints de banco. O trade-off e que o `PetShopDbContext` tecnico conhece a extensao de persistencia do modulo; em troca, a entidade `Tutor` permanece interna ao modulo e o Domain nao referencia EF Core.
+
+Estrategia multitenant da persistencia de animais:
+
+- O tenant continua vindo exclusivamente do `ITenantContext` resolvido da claim `tenant_id` autenticada.
+- O `PetShopDbContext` aplica query filter parametrizado por contexto para `Animal`; sem tenant resolvido, consultas comuns nao retornam animais.
+- `SaveChanges` bloqueia inclusao, alteracao ou exclusao de animais quando nao houver tenant resolvido ou quando o tenant da entidade divergir do tenant autenticado.
+- A Application valida o tutor responsavel por consulta filtrada no tenant atual; tutor de outro tenant se comporta como inexistente, e tutor inativo nao pode assumir novo vinculo operacional.
+- A FK composta no banco protege o mesmo limite caso uma escrita tente associar animal a tutor inexistente ou de outro tenant.
+- A transferencia de responsabilidade usa endpoint explicito, exige `versao` do animal para proteger contra lost update e grava historico append-only limitado ao tenant atual.
 
 Comandos de migrations:
 
@@ -182,7 +218,7 @@ dotnet ef migrations script --idempotent \
   --output ./artifacts/sql/petshop-migrations.sql
 ```
 
-Ao introduzir a primeira tabela de negocio, ela deve possuir `tenant_id` obrigatorio conforme a ADR-0001. Query filters, interceptors de tenant e Row-Level Security permanecem fora desta fundacao ate existir uma decisao especifica.
+Novas tabelas de negocio devem possuir `tenant_id` obrigatorio conforme a ADR-0001. Row-Level Security permanece fora desta fundacao ate existir uma decisao especifica.
 
 ## Contratos HTTP
 
@@ -217,6 +253,101 @@ Em `Development`, o documento OpenAPI fica disponivel em:
 ```
 
 O documento descreve JWT Bearer, o header opcional `X-Correlation-Id` e respostas `application/problem+json`.
+
+Endpoints funcionais de Tutores:
+
+| Metodo | Rota | Uso |
+| --- | --- | --- |
+| `POST` | `/tutores` | Cadastra tutor e retorna `201 Created` com `Location`. |
+| `GET` | `/tutores/{tutorId}` | Consulta tutor visivel no tenant atual. |
+| `PUT` | `/tutores/{tutorId}` | Atualiza cadastro do tutor pela rota, sem aceitar `tenant_id` ou `id` no body como autoridade. |
+| `GET` | `/tutores` | Pesquisa tutores com `pagina`, `tamanhoPagina`, `nome`, `cpf`, `situacao`, `ordenarPor` e `direcao`. |
+| `POST` | `/tutores/{tutorId}/inativacao` | Inativa tutor sem hard delete. |
+
+Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Dados de outro tenant retornam `404` nos fluxos por identificador. CPF e aceito como filtro normalizado, mas as respostas expõem apenas `cpfMascarado`. Inativar tutor com animal ativo vinculado retorna `409`; transfira a responsabilidade ou inative o animal antes de inativar o tutor.
+
+Endpoints funcionais de Animais:
+
+| Metodo | Rota | Uso |
+| --- | --- | --- |
+| `POST` | `/animais` | Cadastra animal vinculado a tutor responsavel ativo do tenant atual e retorna `201 Created` com `Location`. |
+| `GET` | `/animais/{animalId}` | Consulta animal visivel no tenant atual. |
+| `PUT` | `/animais/{animalId}` | Atualiza cadastro do animal pela rota, exige `versao` atual para concorrencia, sem trocar tutor responsavel nem aceitar `tenant_id` ou `id` no body como autoridade. |
+| `GET` | `/animais` | Pesquisa animais com `pagina`, `tamanhoPagina`, `nome`, `tutorResponsavelId`, `especie`, `situacao`, `ordenarPor` e `direcao`. |
+| `POST` | `/animais/{animalId}/transferencias-de-responsabilidade` | Transfere explicitamente a responsabilidade de animal ativo para outro tutor ativo do tenant atual, usando `novoTutorId`, `versao` e motivo opcional. |
+| `POST` | `/animais/{animalId}/falecimento` | Registra falecimento do animal com `dataDoFalecimento`, sem apagar animal ou vinculos. |
+| `POST` | `/animais/{animalId}/inativacao` | Inativa animal sem hard delete. |
+
+Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Tutor responsavel inexistente ou pertencente a outro tenant retorna `404`; tutor responsavel inativo retorna `409`. Dados de outro tenant retornam `404` nos fluxos por identificador. As respostas de animais retornam `tutorResponsavelId`, `situacao`, `dataDoFalecimento` quando aplicavel e `versao`, sem duplicar dados pessoais do tutor.
+
+`TutorResponsavelId` representa somente a responsabilidade operacional cadastral vigente do animal no modulo `PetShop.Tutores`. Esse vinculo nao concede, por si so, consentimento clinico, acesso a prontuario, autorizacao de procedimentos, responsabilidade financeira, condicao de pagador, representacao legal ou direitos relacionados a dados pessoais. Essas capacidades exigirao regras e contratos proprios quando seus modulos forem implementados.
+
+## Entrega 1 - Cadastro de Tutores e Animais
+
+A Entrega 1 consolida a primeira fatia vertical funcional do monolito: o fluxo Tutor -> Animal dentro do modulo `PetShop.Tutores`, que representa a capacidade **Cadastro de Tutores e Animais**. A linguagem de negocio fica em portugues para conceitos e casos de uso (`Tutor`, `Animal`, `CadastrarTutor`, `CadastrarAnimal`, `TransferirResponsabilidadeDoAnimal`), enquanto termos tecnicos consolidados permanecem em ingles (`Application`, `Infrastructure`, `DbContext`, `Repository`, `Request`, `Response`).
+
+Escopo funcional validado:
+
+- cadastrar, consultar, atualizar, pesquisar e inativar tutores;
+- cadastrar, consultar, atualizar, pesquisar e inativar animais;
+- registrar falecimento de animal com data obrigatoria;
+- vincular animal a tutor responsavel ativo do mesmo tenant;
+- transferir explicitamente a responsabilidade de animal ativo para outro tutor ativo do mesmo tenant;
+- impedir a inativacao de tutor ainda responsavel por animal ativo;
+- tratar dados de outro tenant como inexistentes nos fluxos comuns;
+- retornar Problem Details padronizado, com `correlationId`, para erros de entrada, autenticacao, autorizacao, recurso inexistente e conflitos.
+
+Modulo e ownership:
+
+- `src/Modules/Tutores/PetShop.Tutores/` contem Domain, Application, Infrastructure e API do modulo.
+- O modulo e owner das tabelas `tutores`, `animais` e `historico_transferencias_animais`.
+- Outros modulos nao acessam entidades, mappings, repositories ou tabelas desse modulo.
+- A superficie publica do assembly continua limitada a `AddModuloTutores`, `MapModuloTutores` e `ConfigurePersistenciaDoModuloTutores`.
+- Nao foram introduzidos `Shared`, `Common`, `Core`, repository generico, MediatR, AutoMapper, FluentValidation, Integration Events, broker, Redis, API Gateway, microsservico ou banco separado.
+
+Regras multitenant e seguranca:
+
+- O tenant vem exclusivamente da claim validada `tenant_id`.
+- Nenhum request aceita `tenant_id` como autoridade.
+- Todas as tabelas funcionais possuem `tenant_id NOT NULL`.
+- Unicidade de CPF e local ao tenant.
+- FKs compostas com `tenant_id` impedem associacao de animal ou historico de transferencia com tutor/animal de outro tenant.
+- O OpenAPI descreve JWT Bearer e nao publica `tenantId` como parametro ou propriedade de contrato.
+- CPF, e-mail, telefone, tokens e claims completas nao sao registrados em historico de transferencia nem retornados em listagens; CPF sai mascarado.
+
+Requests principais:
+
+- `POST /tutores`: `nome`, `cpf`, `email`, `telefone`; exige ao menos um contato.
+- `PUT /tutores/{tutorId}`: mesmos campos de cadastro; o identificador vem da rota.
+- `GET /tutores`: `pagina`, `tamanhoPagina`, `nome`, `cpf`, `situacao`, `ordenarPor`, `direcao`.
+- `POST /animais`: `tutorResponsavelId`, `nome`, `especie`, `raca`, `sexo`, `dataDeNascimento`, `corOuPelagem`, `observacaoCadastral`.
+- `PUT /animais/{animalId}`: dados cadastrais do animal e `versao`; nao troca tutor responsavel.
+- `GET /animais`: `pagina`, `tamanhoPagina`, `nome`, `tutorResponsavelId`, `especie`, `situacao`, `ordenarPor`, `direcao`.
+- `POST /animais/{animalId}/transferencias-de-responsabilidade`: `novoTutorId`, `versao`, `motivo`.
+- `POST /animais/{animalId}/falecimento`: `dataDoFalecimento`.
+
+Paginacao:
+
+- `pagina` padrao: `1`.
+- `tamanhoPagina` padrao: `20`.
+- `tamanhoPagina` maximo: `100`.
+- Ordenacao aceita `nome` ou `criadoEm`, com `asc` ou `desc`.
+
+Migrations e execucao local:
+
+- As cinco migrations versionadas recriam o banco desde zero: fundacao inicial, tutores, animais, historico de transferencias e ciclo de vida com falecimento.
+- A API nao aplica migrations automaticamente no startup; aplique com `dotnet ef database update`.
+- Aspire continua sendo a experiencia principal para desenvolvimento local com API, PostgreSQL, Keycloak e Dashboard.
+- Docker Compose valida a imagem da API e a stack containerizada com PostgreSQL e Keycloak.
+- Smoke tests existentes validam autenticacao local do Keycloak, `X-Correlation-Id` e tenant autenticado.
+
+Limitacoes e proximos passos:
+
+- Busca textual e ordenacao por nomes usam Value Objects persistidos por conversao EF Core. A paginacao e o isolamento sao testados, mas a otimizacao para alto volume deve ser revisada antes de carga real, possivelmente com colunas normalizadas, indices funcionais ou projecoes de leitura deliberadas.
+- O checkpoint SDD 26 documenta a revisao estrategica de bounded contexts, context map, matriz de responsabilidades, catalogo de aggregates e roadmap tecnico-funcional em `docs/domain/`.
+- Row-Level Security, suporte administrativo cross-tenant, direitos do titular, retencao, exportacao, auditoria funcional ampla e prontuario veterinario continuam fora desta entrega.
+- Agenda, atendimento, faturamento, notificacoes, catalogo de servicos e profissionais devem entrar como capacidades proprias, sem acessar diretamente tabelas ou entidades de Tutores.
+- Modulos futuros nao devem inferir autorizacao clinica, prontuario, pagador, responsavel financeiro, representacao legal ou direitos de dados a partir de `TutorResponsavelId`.
 
 Health checks:
 
@@ -414,23 +545,22 @@ O middleware de entrada aceita `X-Correlation-Id` valido ou cria um novo GUID, d
 
 ## Qualidade, testes e CI
 
-A Entrega 0 fecha os gates automatizados minimos para a fundacao atual, sem criar modulos vazios ou infraestrutura futura.
+As Entregas 0 e 1 fecham os gates automatizados minimos para a fundacao tecnica e para a primeira fatia vertical, sem criar modulos vazios ou infraestrutura futura.
 
 Suites:
 
 - `PetShop.UnitTests`: tipos, factories e validacoes puras da API.
 - `PetShop.Observability.Tests`: propagacao, correlation, HTTP de saida e adapter ASP.NET Core.
-- `PetShop.ArchitectureTests`: regras de referencia entre projetos, ausencia de dependencia ASP.NET Core em `PetShop.Observability`, API sem dependencia do AppHost, producao sem dependencia de testes e ausencia de ciclos.
-- `PetShop.IntegrationTests`: WebApplicationFactory, JWT Bearer defensivo, Problem Details, health/readiness, OpenAPI e migrations em PostgreSQL real com Testcontainers.
+- `PetShop.ArchitectureTests`: regras de referencia entre projetos, ausencia de dependencia ASP.NET Core em `PetShop.Observability`, API sem dependencia do AppHost, producao sem dependencia de testes, ausencia de ciclos e fronteiras do modulo `PetShop.Tutores`.
+- `PetShop.IntegrationTests`: WebApplicationFactory, JWT Bearer defensivo, Problem Details, health/readiness, OpenAPI, migrations, isolamento com dois tenants e fluxos HTTP de Tutores/Animais em PostgreSQL real com Testcontainers.
 - `PetShop.AppHost.Tests`: smoke tests leves da composicao Aspire e do realm local do Keycloak.
 
 O workflow `.github/workflows/dotnet.yml` executa checkout, setup do .NET pelo `global.json`, restore com auditoria NuGet, build Release, gates separados de testes, verificacao de Docker para Testcontainers, coleta de cobertura via Coverlet e publicacao de TRX/cobertura como artifacts. Os workflows adicionais cobrem Gitleaks, CodeQL, Dependency Review e SonarCloud opt-in quando as variaveis e secrets do repositorio estiverem configurados.
 
-Cobertura e usada como sinal de risco. Nao ha threshold artificial nesta entrega; os pontos de maior risco ja cobertos sao autenticacao/autorizacao, tenant autenticado, correlation, health/readiness, OpenAPI, migrations e fronteiras arquiteturais. A primeira funcionalidade de negocio tenant-owned deve adicionar testes de isolamento persistente com pelo menos dois tenants.
+Cobertura e usada como sinal de risco. Nao ha threshold artificial nesta entrega; os pontos de maior risco ja cobertos sao autenticacao/autorizacao, tenant autenticado, correlation, health/readiness, OpenAPI, migrations, fronteiras arquiteturais, persistencia tenant-owned, contratos de Tutores/Animais, concorrencia de transferencia e bloqueio cross-tenant.
 
 ## Escopo ainda nao implementado
 
-- Entidades e modulos de negocio tenant-owned.
-- Query filters, interceptors de tenant, enforcement persistente e Row-Level Security.
-- Modulos de negocio como cadastro, pets, agenda, atendimento ou cobranca.
+- Row-Level Security.
+- Outros modulos de negocio como agenda, atendimento ou cobranca.
 - Broker, Redis, API Gateway, microsservicos ou multiplos bancos.

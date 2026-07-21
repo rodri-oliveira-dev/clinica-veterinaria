@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | Tutor | Aceito / fato confirmado | Pessoa cadastrada pela clinica para relacionamento operacional sobre animais dentro do tenant. Nao implica propriedade legal, responsabilidade financeira ou consentimento clinico amplo. |
 | Responsavel | Ambiguo | Usar somente com qualificacao. O termo isolado nao deve virar contrato ou regra. |
-| Tutor responsavel | Aceito / decisao vigente | Tutor ativo, existente e visivel no tenant atual que representa a responsabilidade operacional vigente pelo animal. |
+| Tutor responsavel | Aceito / decisao vigente | Tutor ativo, existente e visivel no tenant atual que representa a responsabilidade operacional vigente pelo animal. Nao concede autorizacao clinica, prontuario, cobranca, representacao legal ou direitos de dados. |
 | Responsavel principal | Reservado | Nao existe como dado separado. Na fatia atual equivale ao tutor responsavel vigente apenas porque nao ha multiplos responsaveis. |
 | Animal | Aceito / fato confirmado | Paciente animal mantido no cadastro operacional do tenant. |
 | Vinculo | Aceito | Relacao operacional vigente entre animal e tutor responsavel. Hoje e referencia por identidade no aggregate `Animal`, nao entidade propria. |
@@ -17,6 +17,10 @@
 | Paciente | Dependente de descoberta futura | Pode ser usado em contexto clinico futuro; na Entrega 1 o termo de cadastro e `Animal`. |
 | Pet | Evitado | Usar `Animal` quando o conceito for o paciente/cadastro animal no dominio. |
 | Responsavel financeiro | Hipotese | Reservado para Billing; nao inferir a partir de `TutorResponsavelId`. |
+| Autorizador clinico | Hipotese | Reservado para discovery de Atendimento/Prontuario; nao inferir a partir de `TutorResponsavelId`. |
+| Pagador | Hipotese | Reservado para Cobranca/Faturamento; nao inferir a partir de `TutorResponsavelId`. |
+| Representante legal | Hipotese | Reservado para discovery proprio; nao inferir a partir de `TutorResponsavelId`. |
+| Direitos do titular | Hipotese | Reservado para fluxos de Privacidade/Compliance; nao inferir a partir de vinculo cadastral com animal. |
 | Pessoa | Reservado | Nao criar entidade generica sem regras compartilhadas confirmadas. |
 | Microchip | Hipotese | Identificador externo futuro, sem regra atual de unicidade. |
 | Idade estimada | Hipotese | Nao persistida; data exata opcional e a regra vigente. |

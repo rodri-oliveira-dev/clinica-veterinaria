@@ -401,6 +401,20 @@ Ownership:
 
 Contratos futuros devem ser especificos por caso de uso. Agenda pode precisar validar animal ativo e responsavel operacional; Atendimento pode precisar registrar quem acompanhou ou autorizou; Cobranca deve separar tutor de responsavel financeiro; Prontuario deve gravar snapshot historico. Nenhum desses contratos foi implementado sem consumidor real no SDD 24.
 
+## Limites semanticos do vinculo
+
+O SDD 27 reforca que o vinculo entre pessoa e animal representa somente a responsabilidade operacional cadastral vigente ja validada pelo modulo `PetShop.Tutores`.
+
+O vinculo cadastral ou operacional entre uma pessoa e um animal nao concede, por si so, autorizacao clinica, consentimento para procedimentos, acesso irrestrito ao prontuario, representacao legal, responsabilidade financeira, condicao de pagador ou exercicio automatico de direitos relacionados aos dados pessoais.
+
+Cada uma dessas capacidades deve possuir regra, contrato, politica e evidencia propria quando for efetivamente implementada.
+
+`TutorResponsavelId` permanece no contrato atual porque a semantica operacional esta validada e uma renomeacao agora exigiria quebra de contrato e possivel migration sem ganho proporcional. Modulos futuros nao devem interpretar esse identificador como autorizador clinico, pagador, representante legal, responsavel financeiro ou titular apto a exercer direitos de dados.
+
+Documento complementar:
+
+- `docs/domain/limites-semanticos-vinculo-animal.md`.
+
 ## Diagrama
 
 ```mermaid

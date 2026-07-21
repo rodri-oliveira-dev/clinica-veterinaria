@@ -272,6 +272,10 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                     }
                 })
             .WithName("CadastrarAnimal")
+            .WithDescription(
+                "Cadastra animal com tutor responsavel operacional ativo do tenant atual. " +
+                "TutorResponsavelId nao representa consentimento clinico, acesso a prontuario, pagador, " +
+                "responsavel financeiro ou representante legal.")
             .Produces<AnimalResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -411,6 +415,10 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                     }
                 })
             .WithName("TransferirResponsabilidadeDoAnimal")
+            .WithDescription(
+                "Altera somente o tutor responsavel operacional vigente pelo animal. " +
+                "A transferencia nao registra consentimento clinico, autorizacao de procedimento, " +
+                "pagador, responsavel financeiro ou representante legal.")
             .Produces<AnimalResponse>()
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -497,6 +505,9 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                     }
                 })
             .WithName("PesquisarAnimais")
+            .WithDescription(
+                "Pesquisa animais do tenant atual e pode filtrar pelo tutor responsavel operacional vigente. " +
+                "Esse filtro nao consulta autorizacoes clinicas, prontuario, cobranca ou representacao legal.")
             .Produces<PesquisarAnimaisResponse>()
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)

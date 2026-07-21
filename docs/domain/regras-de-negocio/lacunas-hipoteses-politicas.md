@@ -42,6 +42,7 @@
 | HYP-REL-003 | Responsavel financeiro ou pagador. | Hipotese | Fora de Cobranca atual. | Cobrar tutor operacional indevidamente. |
 | HYP-REL-004 | Proprietario declarado ou proprietario legal. | Hipotese | Nao inferido de Tutor. | Confundir operacao cadastral com propriedade legal. |
 | HYP-REL-005 | Historico completo de vigencia de vinculos. | Hipotese | Historico atual registra eventos minimos de transferencia. | Auditoria futura pode exigir tabela principal de vinculo. |
+| HYP-REL-006 | Consentimento clinico, acesso ao prontuario, autorizador clinico, representante legal e direitos do titular. | Hipotese / discovery obrigatorio | Nao implementado; o vinculo operacional nao concede essas capacidades. | Vazamento clinico, consentimento invalido, representacao indevida ou tratamento de dados sem regra propria. |
 
 ## Politicas configuraveis candidatas
 

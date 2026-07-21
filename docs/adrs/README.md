@@ -15,6 +15,7 @@ ADRs são históricas. Depois que uma decisão for aceita, não reescreva o arqu
 | [ADR-0005](0005-ciclo-de-vida-animal.md) | Aceita | Usar situacao operacional explicita minima para o ciclo de vida do Animal |
 | [ADR-0006](0006-ownership-relacionamento-tutores-animais.md) | Aceita | Manter ownership unico do relacionamento Tutor-Animal e bloquear inativacao de tutor com animal ativo vinculado |
 | [ADR-0007](0007-revisao-bounded-contexts-modulos-aggregates.md) | Aceita | Confirmar Cadastro de Tutores e Animais e manter demais capacidades como candidatas ate discovery e fatia vertical |
+| [ADR-0008](0008-limites-semanticos-vinculo-tutor-animal.md) | Aceita | Nao inferir capacidades clinicas, financeiras, legais ou de privacidade a partir do vinculo operacional Tutor-Animal |
 
 ## Convenção
 

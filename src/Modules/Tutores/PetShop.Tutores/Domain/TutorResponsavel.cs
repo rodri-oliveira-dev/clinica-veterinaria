@@ -1,5 +1,10 @@
 namespace PetShop.Tutores.Domain;
 
+/// <summary>
+/// Referencia o tutor responsavel operacional vigente pelo animal no cadastro.
+/// Este vinculo nao concede autorizacao clinica, acesso a prontuario,
+/// responsabilidade financeira, condicao de pagador ou representacao legal.
+/// </summary>
 internal readonly record struct TutorResponsavel
 {
     private TutorResponsavel(Guid tutorId)

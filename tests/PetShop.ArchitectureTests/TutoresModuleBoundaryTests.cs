@@ -9,6 +9,26 @@ namespace PetShop.ArchitectureTests;
 
 public sealed class TutoresModuleBoundaryTests
 {
+    private static readonly string[] FutureCapabilityTerms =
+    [
+        "AutorizacaoClinica",
+        "AutorizadorClinico",
+        "Billing",
+        "Consentimento",
+        "DireitosDoTitular",
+        "HealthRecord",
+        "LegalRepresentative",
+        "Medical",
+        "MedicalRecord",
+        "Pagador",
+        "Payer",
+        "Prontuario",
+        "ProprietarioLegal",
+        "RepresentanteLegal",
+        "ResponsavelFinanceiro",
+        "TitularDeDados"
+    ];
+
     private const BindingFlags TypeMemberFlags =
         BindingFlags.Public |
         BindingFlags.NonPublic |
@@ -78,6 +98,22 @@ public sealed class TutoresModuleBoundaryTests
                 .SelectMany(method => MethodContractTypes(method)
                     .Where(IsQueryableType)
                     .Select(contractType => $"{type.FullName}.{method.Name} -> {contractType.FullName}")))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void TutoresModule_DoesNotDefineFutureCapabilityContracts()
+    {
+        Assembly tutores = typeof(ModuloTutoresServiceCollectionExtensions).Assembly;
+
+        string[] violations = tutores
+            .GetTypes()
+            .SelectMany(type => SemanticContractNames(type)
+                .Where(name => FutureCapabilityTerms.Any(term => name.Contains(term, StringComparison.Ordinal)))
+                .Select(name => $"{type.FullName}.{name}"))
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -210,6 +246,31 @@ public sealed class TutoresModuleBoundaryTests
         foreach (ParameterInfo parameter in method.GetParameters())
         {
             yield return parameter.ParameterType;
+        }
+    }
+
+    private static IEnumerable<string> SemanticContractNames(Type type)
+    {
+        yield return type.Name;
+
+        foreach (PropertyInfo property in type.GetProperties(TypeMemberFlags))
+        {
+            yield return property.Name;
+        }
+
+        foreach (FieldInfo field in type.GetFields(TypeMemberFlags))
+        {
+            yield return field.Name;
+        }
+
+        foreach (MethodInfo method in type.GetMethods(TypeMemberFlags))
+        {
+            yield return method.Name;
+
+            foreach (ParameterInfo parameter in method.GetParameters())
+            {
+                yield return parameter.Name ?? string.Empty;
+            }
         }
     }
 

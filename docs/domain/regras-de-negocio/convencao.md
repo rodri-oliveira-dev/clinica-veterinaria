@@ -20,7 +20,16 @@ Status permitidos:
 - `Adiada`: descoberta registrada, mas fora da entrega atual.
 - `Substituida`: regra historica mantida para rastreabilidade.
 
-Hipoteses e questoes em aberto ficam em `lacunas-hipoteses-politicas.md`, nao no catalogo vigente.
+Hipoteses e questoes em aberto ficam no backlog central `docs/domain/discovery-backlog.md`, nao no catalogo vigente. O arquivo `lacunas-hipoteses-politicas.md` resume riscos da Entrega 1 e aponta para os itens `DISC-*`.
+
+Mapeamento com a taxonomia de discovery do SDD 28:
+
+| Catalogo | Discovery | Uso |
+| --- | --- | --- |
+| `Vigente` | `Vigente` | Pode orientar implementacao quando houver evidencia e contexto. |
+| `Proposta` | `Hipótese` ou `Questão aberta` | Nao deve orientar codigo, contrato, banco ou autorizacao sem promocao. |
+| `Adiada` | `Decisão adiada` | Deve possuir gatilho de retomada e limites da solucao temporaria. |
+| `Substituida` | `Descartada` quando a hipotese for rejeitada | Preservar historico e motivo. |
 
 ## Alteracao
 
@@ -51,6 +60,7 @@ Revise o catalogo quando:
 - Migration alterar tabelas `tutores`, `animais` ou `historico_transferencias_animais`.
 - Teste revelar comportamento divergente de regra vigente.
 - Produto validar pessoa juridica, multiplos responsaveis, responsavel financeiro, identificadores externos ou Agenda.
+- Algum item `DISC-*` for promovido, adiado, descartado ou virar regra vigente.
 
 ## Responsabilidade de manutencao
 

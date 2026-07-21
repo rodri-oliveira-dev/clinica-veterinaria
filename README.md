@@ -50,6 +50,7 @@ As decisoes completas estao em:
 - `docs/adrs/0005-ciclo-de-vida-animal.md`
 - `docs/adrs/0006-ownership-relacionamento-tutores-animais.md`
 - `docs/adrs/0007-revisao-bounded-contexts-modulos-aggregates.md`
+- `docs/adrs/0008-limites-semanticos-vinculo-tutor-animal.md`
 
 ## Requisitos
 
@@ -279,6 +280,8 @@ Endpoints funcionais de Animais:
 
 Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Tutor responsavel inexistente ou pertencente a outro tenant retorna `404`; tutor responsavel inativo retorna `409`. Dados de outro tenant retornam `404` nos fluxos por identificador. As respostas de animais retornam `tutorResponsavelId`, `situacao`, `dataDoFalecimento` quando aplicavel e `versao`, sem duplicar dados pessoais do tutor.
 
+`TutorResponsavelId` representa somente a responsabilidade operacional cadastral vigente do animal no modulo `PetShop.Tutores`. Esse vinculo nao concede, por si so, consentimento clinico, acesso a prontuario, autorizacao de procedimentos, responsabilidade financeira, condicao de pagador, representacao legal ou direitos relacionados a dados pessoais. Essas capacidades exigirao regras e contratos proprios quando seus modulos forem implementados.
+
 ## Entrega 1 - Cadastro de Tutores e Animais
 
 A Entrega 1 consolida a primeira fatia vertical funcional do monolito: o fluxo Tutor -> Animal dentro do modulo `PetShop.Tutores`, que representa a capacidade **Cadastro de Tutores e Animais**. A linguagem de negocio fica em portugues para conceitos e casos de uso (`Tutor`, `Animal`, `CadastrarTutor`, `CadastrarAnimal`, `TransferirResponsabilidadeDoAnimal`), enquanto termos tecnicos consolidados permanecem em ingles (`Application`, `Infrastructure`, `DbContext`, `Repository`, `Request`, `Response`).
@@ -344,6 +347,7 @@ Limitacoes e proximos passos:
 - O checkpoint SDD 26 documenta a revisao estrategica de bounded contexts, context map, matriz de responsabilidades, catalogo de aggregates e roadmap tecnico-funcional em `docs/domain/`.
 - Row-Level Security, suporte administrativo cross-tenant, direitos do titular, retencao, exportacao, auditoria funcional ampla e prontuario veterinario continuam fora desta entrega.
 - Agenda, atendimento, faturamento, notificacoes, catalogo de servicos e profissionais devem entrar como capacidades proprias, sem acessar diretamente tabelas ou entidades de Tutores.
+- Modulos futuros nao devem inferir autorizacao clinica, prontuario, pagador, responsavel financeiro, representacao legal ou direitos de dados a partir de `TutorResponsavelId`.
 
 Health checks:
 

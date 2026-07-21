@@ -60,6 +60,10 @@ internal sealed class Animal : IEquatable<Animal>
 
     public SituacaoDoAnimal Situacao { get; private set; }
 
+    /// <summary>
+    /// Vinculo operacional vigente usado pelo cadastro de tutores e animais.
+    /// Capacidades como consentimento clinico, prontuario e cobranca exigem contratos proprios.
+    /// </summary>
     public TutorResponsavel TutorResponsavel => TutorResponsavel.Criar(TutorResponsavelId.Valor);
 
     internal TutorId TutorResponsavelId { get; private set; }

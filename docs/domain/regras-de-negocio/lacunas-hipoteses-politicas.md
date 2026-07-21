@@ -3,10 +3,11 @@
 ## Resumo
 
 - Regras vigentes catalogadas: 27.
-- Hipoteses separadas de regras vigentes: 12.
+- Hipoteses separadas de regras vigentes: 12 no registro original da Entrega 1; consolidadas e expandidas no backlog `DISC-*`.
 - Politicas configuraveis candidatas: 5.
 - Contradicoes encontradas: 2 documentais, corrigidas neste SDD.
 - Contradicoes executaveis encontradas no codigo: nenhuma.
+- Backlog central de discovery: `docs/domain/discovery-backlog.md`.
 
 ## Contradicoes e duplicidades
 
@@ -23,25 +24,28 @@
 | Nao ha teste dedicado para bloquear update/delete manual de `historico_transferencias_animais`; ha guarda implementada e teste que comprova gravacao do historico. | Regra vigente sem cobertura completa | Medio para auditoria operacional futura. | Registrada explicitamente em BR-REL-005 e na matriz. | Adicionar teste se o historico ganhar auditoria, retencao ou APIs administrativas. |
 | Fonte de produto/stakeholder das regras e indireta, via SDDs e ADRs versionados; nao ha registro nominal de stakeholder. | Regra com fonte documental, sem stakeholder nominal | Baixo agora; pode dificultar priorizacao futura. | Mantida como fonte documental, sem inventar stakeholder. | Revisar em discovery da proxima entrega. |
 | Direitos do titular, retencao, exportacao, bloqueio e eliminacao de dados pessoais permanecem fora da Entrega 1. | Validacao especializada necessaria | Alto quando houver fluxos LGPD. | Registrada como fora de escopo; nenhuma regra vigente criada. | Usar skill LGPD quando esses fluxos forem especificados. |
-| Agenda ainda nao existe; elegibilidade para novos agendamentos nao e regra executavel atual. | Hipotese / risco para proxima entrega | Alto para Entrega de Agenda. | Mantida como risco, sem regra vigente. | Ao criar Agenda, validar situacao `Ativo` e impacto de `Inativo`/`Falecido`. |
-| Pessoa juridica, abrigo, associacao ou orgao publico nao possuem modelo nem regra vigente. | Questao em aberto | Medio para cadastros reais. | Mantido fora do catalogo vigente. | Reabrir quando produto pedir cadastro nao pessoa fisica. |
+| Agenda ainda nao existe; elegibilidade para novos agendamentos nao e regra executavel atual. | Questão aberta / risco para proxima entrega | Alto para Entrega de Agenda. | Mantida como risco, sem regra vigente. | DISC-001. |
+| Pessoa juridica, abrigo, associacao ou orgao publico nao possuem modelo nem regra vigente. | Questão aberta | Medio para cadastros reais. | Mantido fora do catalogo vigente. | DISC-003. |
 
 ## Hipoteses e questoes em aberto
 
-| ID | Informacao | Categoria | Estado atual | Risco |
+O SDD 28 criou o backlog central [discovery-backlog.md](../discovery-backlog.md). A tabela abaixo preserva os identificadores historicos `HYP-*` da Entrega 1 e aponta para os itens `DISC-*` correspondentes. O estado principal passa a ser o estado do item `DISC-*`.
+
+| ID historico | Informacao | Estado principal | Item central | Risco |
 | --- | --- | --- | --- | --- |
-| HYP-TUT-001 | CPF pode virar obrigatorio por tenant ou por tipo de atendimento. | Hipotese | Nao implementado; CPF vigente e opcional. | Quebrar cadastro operacional se virar requisito sem migration e UX. |
-| HYP-TUT-002 | Cadastro de pessoa juridica, abrigo, associacao ou orgao publico. | Hipotese | Nao implementado; `Tutor` representa pessoa operacional cadastrada. | Usar CPF como regra universal indevida. |
-| HYP-TUT-003 | Deduplicacao assistida de tutores. | Hipotese | Nao implementado. | Duplicidades operacionais podem exigir merge auditado. |
-| HYP-ANI-001 | Idade estimada, mes/ano ou data aproximada. | Hipotese | Nao implementado; data exata opcional. | Fabricar precisao ou bloquear cadastros incompletos. |
-| HYP-ANI-002 | Microchip ou identificadores externos. | Hipotese | Nao implementado. | Definir unicidade errada sem discovery. |
-| HYP-ANI-003 | Estado `desaparecido`, `duplicado` ou `arquivado`. | Hipotese | Nao implementado; estados vigentes sao `ativo`, `inativo`, `falecido`. | Agenda e Atendimento podem exigir semantica diferente. |
-| HYP-ANI-004 | Catalogos de especie e raca. | Hipotese | Nao implementado; ambos sao textuais. | Curadoria e manutencao por tenant podem surgir. |
-| HYP-REL-001 | Multiplos responsaveis simultaneos por animal. | Hipotese | Nao implementado; um tutor responsavel vigente. | `TutorResponsavelId` pode virar insuficiente. |
-| HYP-REL-002 | Responsavel principal como conceito separado. | Termo reservado | Nao existe como dado separado. | Criar coluna antes de multiplos responsaveis geraria duplicidade sem valor. |
-| HYP-REL-003 | Responsavel financeiro ou pagador. | Hipotese | Fora de Cobranca atual. | Cobrar tutor operacional indevidamente. |
-| HYP-REL-004 | Proprietario declarado ou proprietario legal. | Hipotese | Nao inferido de Tutor. | Confundir operacao cadastral com propriedade legal. |
-| HYP-REL-005 | Historico completo de vigencia de vinculos. | Hipotese | Historico atual registra eventos minimos de transferencia. | Auditoria futura pode exigir tabela principal de vinculo. |
+| HYP-TUT-001 | CPF pode virar obrigatorio por tenant ou por tipo de atendimento. | Hipótese | A registrar quando houver SDD de politica de identificacao | Quebrar cadastro operacional se virar requisito sem migration e UX. |
+| HYP-TUT-002 | Cadastro de pessoa juridica, abrigo, associacao ou orgao publico. | Questão aberta | DISC-003 | Usar CPF como regra universal indevida. |
+| HYP-TUT-003 | Deduplicacao assistida de tutores. | Hipótese | A registrar quando houver SDD de deduplicacao | Duplicidades operacionais podem exigir merge auditado. |
+| HYP-ANI-001 | Idade estimada, mes/ano ou data aproximada. | Hipótese | A registrar quando houver SDD de dados cadastrais ampliados | Fabricar precisao ou bloquear cadastros incompletos. |
+| HYP-ANI-002 | Microchip ou identificadores externos. | Hipótese | A registrar quando houver SDD de identificadores externos | Definir unicidade errada sem discovery. |
+| HYP-ANI-003 | Estado `desaparecido`, `duplicado` ou `arquivado`. | Hipótese | DISC-001, se impactar Agenda; outro item quando houver fluxo proprio | Agenda e Atendimento podem exigir semantica diferente. |
+| HYP-ANI-004 | Catalogos de especie e raca. | Hipótese | A registrar quando houver SDD de catalogos clinicos/cadastrais | Curadoria e manutencao por tenant podem surgir. |
+| HYP-REL-001 | Multiplos responsaveis simultaneos por animal. | Questão aberta | DISC-004 | `TutorResponsavelId` pode virar insuficiente. |
+| HYP-REL-002 | Responsavel principal como conceito separado. | Questão aberta | DISC-004 | Criar coluna antes de multiplos responsaveis geraria duplicidade sem valor. |
+| HYP-REL-003 | Responsavel financeiro ou pagador. | Questão aberta | DISC-005 | Cobrar tutor operacional indevidamente. |
+| HYP-REL-004 | Proprietario declarado ou proprietario legal. | Questão aberta | DISC-004, DISC-006 ou item futuro especifico | Confundir operacao cadastral com propriedade legal. |
+| HYP-REL-005 | Historico completo de vigencia de vinculos. | Decisão adiada | DISC-008 | Auditoria futura pode exigir tabela principal de vinculo. |
+| HYP-REL-006 | Consentimento clinico, acesso ao prontuario, autorizador clinico, representante legal e direitos do titular. | Questão aberta | DISC-002, DISC-006, DISC-007 | Vazamento clinico, consentimento invalido, representacao indevida ou tratamento de dados sem regra propria. |
 
 ## Politicas configuraveis candidatas
 
@@ -62,3 +66,13 @@ Estas politicas podem variar por tenant no futuro, mas nao foram implementadas p
 - Discovery de Billing antes de usar tutor operacional como responsavel financeiro.
 - Revisao de ownership se outro modulo precisar de leitura frequente de tutor/animal.
 - Modelagem de vinculos se houver multiplos responsaveis, vigencia, suspensao, autorizacao ou disputa.
+
+Itens de discovery correspondentes:
+
+- DISC-001 Agenda e politicas operacionais.
+- DISC-002 LGPD e direitos dos titulares.
+- DISC-004 Multiplos responsaveis por animal.
+- DISC-005 Responsavel financeiro, pagador e destinatario da cobranca.
+- DISC-006 Consentimento e autorizacao clinica.
+- DISC-007 Acesso ao prontuario.
+- DISC-008 Historico temporal dos vinculos pessoa-animal.

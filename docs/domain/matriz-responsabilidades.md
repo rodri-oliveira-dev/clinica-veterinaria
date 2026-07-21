@@ -3,11 +3,13 @@
 - **Data:** 2026-07-21
 - **Escopo:** SDD 26
 
+Para capacidades com status diferente de `Confirmado`, a coluna `Invariantes` registra hipoteses de consistencia para discovery, nao regras vigentes. Antes de implementar schema, contrato, validacao ou autorizacao, relacione a capacidade ao backlog `docs/domain/discovery-backlog.md`.
+
 | Capacidade | Dados proprios | Operacoes | Invariantes | Consumidores | Status |
 | --- | --- | --- | --- | --- | --- |
 | Tutor | `tutores`, contatos, situacao, CPF mascarado em respostas | cadastrar, consultar, pesquisar, atualizar, inativar | tenant obrigatorio; CPF unico por tenant quando informado; ao menos um contato; tutor com animal ativo vinculado nao pode ser inativado | API atual; Agenda/Atendimento/Cobranca futuros por contrato | Confirmado |
 | Animal | `animais`, dados cadastrais, situacao, tutor responsavel vigente, versao | cadastrar, consultar, pesquisar, atualizar, inativar, registrar falecimento | tenant obrigatorio; nome/especie obrigatorios; falecido exige data; falecido bloqueia fluxos comuns; tutor responsavel do mesmo tenant | API atual; Agenda/Atendimento/Prontuario futuros por contrato | Confirmado |
-| Vinculo Tutor-Animal | `animais.tutor_responsavel_id`; `historico_transferencias_animais` como trilha minima | vincular no cadastro; transferir responsabilidade | exatamente um tutor responsavel vigente; tutor responsavel ativo no cadastro/transferencia; FKs compostas com tenant; transferencia exige versao | API atual; futuros modulos por contrato especifico | Confirmado |
+| Vinculo Tutor-Animal | `animais.tutor_responsavel_id`; `historico_transferencias_animais` como trilha minima | vincular no cadastro; transferir responsabilidade | exatamente um tutor responsavel vigente; tutor responsavel ativo no cadastro/transferencia; FKs compostas com tenant; transferencia exige versao; nao concede consentimento clinico, prontuario, cobranca, pagador, representacao legal ou direitos de dados | API atual; futuros modulos por contrato especifico | Confirmado |
 | Servico | Definicao operacional do servico, status, duracao padrao, requisitos simples | cadastrar/editar/inativar servico; consultar definicao | nome/codigo por tenant; servico ativo para novos agendamentos; duracao padrao valida | Agenda, Atendimento, Cobranca | Candidato |
 | Profissional | cadastro profissional, credenciais de dominio, unidades de atuacao, aptidoes | cadastrar, habilitar/desabilitar, associar a unidade/servico | profissional pertence ao tenant; credencial valida quando exigida; nao e usuario Keycloak por definicao | Agenda, Atendimento, Prontuario | Candidato |
 | Disponibilidade | escalas, bloqueios, ferias, disponibilidade por unidade/profissional/recurso | abrir/fechar horarios, bloquear periodos, consultar slots base | intervalos validos; sem sobreposicao indevida conforme owner; tenant e unidade respeitados | Agenda | Exige descoberta |

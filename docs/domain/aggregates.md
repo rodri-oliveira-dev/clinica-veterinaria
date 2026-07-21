@@ -61,6 +61,8 @@
 
 ## Aggregates candidatos
 
+As secoes abaixo registram modelos candidatos para orientar discovery. Para capacidades ainda nao implementadas, "invariantes candidatas" nao sao regras vigentes, nao autorizam schema, contratos, validacoes ou politicas de autorizacao e devem ser vinculadas a um item `DISC-*` antes de implementacao.
+
 ### Servico
 
 | Item | Descricao |
@@ -69,7 +71,7 @@
 | Aggregate Root | `Servico` |
 | Entidades internas | Evitar no MVP; categorias e requisitos so se tiverem regra propria |
 | Value Objects candidatos | `ServicoId`, `TenantId`, `NomeDoServico`, `CodigoDoServico`, `DuracaoPadrao`, `SituacaoDoServico`, talvez `PrecoPadrao` como referencia |
-| Invariantes conhecidas | tenant obrigatorio; nome/codigo valido; duracao positiva; servico inativo nao deve ser usado em novos agendamentos comuns |
+| Invariantes candidatas, nao vigentes | tenant obrigatorio; nome/codigo valido; duracao positiva; servico inativo nao deve ser usado em novos agendamentos comuns |
 | Operacoes candidatas | cadastrar, atualizar definicao, ativar/inativar |
 | Consistencia | Local ao Catalogo; Agenda consulta definicao ativa por contrato |
 | Tamanho esperado | Pequeno; definicao operacional, nao execucao inteira |
@@ -85,7 +87,7 @@
 | Aggregate Root | `Profissional` |
 | Entidades internas | Credenciais, unidades de atuacao ou aptidoes podem virar entidades internas se tiverem ciclo proprio |
 | Value Objects candidatos | `ProfissionalId`, `TenantId`, `NomeDoProfissional`, `RegistroProfissional`, `SituacaoDoProfissional` |
-| Invariantes conhecidas | tenant obrigatorio; profissional ativo para execucao/agendamento; credencial obrigatoria para funcoes reguladas, se confirmado |
+| Invariantes candidatas, nao vigentes | tenant obrigatorio; profissional ativo para execucao/agendamento; credencial obrigatoria para funcoes reguladas, se confirmado |
 | Operacoes candidatas | cadastrar, habilitar, inativar, associar unidade, registrar aptidao |
 | Consistencia | Local para cadastro; Agenda/Atendimento validam aptidao por contrato |
 | Tamanho esperado | Medio; nao deve virar usuario/permissao generico |
@@ -101,7 +103,7 @@
 | Aggregate Root | Em aberto: `DisponibilidadeDoProfissional`, `Escala`, `BloqueioDeAgenda` ou similar |
 | Entidades internas | Intervalos, excecoes, ferias, bloqueios |
 | Value Objects candidatos | `IntervaloDeTempo`, `DiaDaSemana`, `Periodo`, `UnidadeId` |
-| Invariantes conhecidas | intervalos validos; sem sobreposicao proibida; tenant e unidade consistentes |
+| Invariantes candidatas, nao vigentes | intervalos validos; sem sobreposicao proibida; tenant e unidade consistentes |
 | Operacoes candidatas | definir escala, bloquear periodo, liberar periodo, consultar disponibilidade base |
 | Consistencia | Depende se a regra e de escala (Workforce) ou reserva (Agenda) |
 | Tamanho esperado | Ainda incerto |
@@ -117,7 +119,7 @@
 | Aggregate Root | `Agendamento` |
 | Entidades internas | Talvez itens/servicos agendados, recursos reservados, historico de remarcacao |
 | Value Objects candidatos | `AgendamentoId`, `TenantId`, `JanelaDeHorario`, `SituacaoDoAgendamento`, `Origem`, `Versao` |
-| Invariantes conhecidas | sem conflito de horario para profissional/recurso quando aplicavel; animal apto; servico ativo; tenant consistente; remarcacao com concorrencia |
+| Invariantes candidatas, nao vigentes | sem conflito de horario para profissional/recurso quando aplicavel; animal apto; servico ativo; tenant consistente; remarcacao com concorrencia |
 | Operacoes candidatas | agendar, remarcar, cancelar, confirmar, no-show, check-in se permanecer em Agenda |
 | Consistencia | Forte dentro da agenda para conflito de reserva |
 | Tamanho esperado | Medio; nao representar toda jornada clinica |
@@ -133,7 +135,7 @@
 | Aggregate Root | `Atendimento` |
 | Entidades internas | Servicos realizados, responsavel presente, observacoes operacionais |
 | Value Objects candidatos | `AtendimentoId`, `TenantId`, `SituacaoDoAtendimento`, `SnapshotDoAnimal`, `SnapshotDoResponsavel` |
-| Invariantes conhecidas | atendimento iniciado a partir de agendamento ou demanda avulsa confirmada; conclusao exige estado operacional coerente |
+| Invariantes candidatas, nao vigentes | atendimento iniciado a partir de agendamento ou demanda avulsa confirmada; conclusao exige estado operacional coerente |
 | Operacoes candidatas | iniciar, registrar execucao, concluir, cancelar |
 | Consistencia | Local ao fluxo operacional; Cobranca e Prontuario devem integrar por contrato ou evento futuro |
 | Tamanho esperado | Medio; separado de prontuario quando houver conteudo clinico |
@@ -149,7 +151,7 @@
 | Aggregate Root | Em aberto: `RegistroClinico`, `ProntuarioDoAnimal` ou `EvolucaoClinica` |
 | Entidades internas | Evolucoes, anexos, consentimentos, correcoes |
 | Value Objects candidatos | `AutoriaClinica`, `ConteudoClinico`, `Assinatura`, `Retencao` |
-| Invariantes conhecidas | autoria clinica; correcao auditada; privacidade; tenant consistente |
+| Invariantes candidatas, nao vigentes | autoria clinica; correcao auditada; privacidade; tenant consistente |
 | Operacoes candidatas | registrar evolucao, anexar documento, corrigir, assinar/finalizar |
 | Consistencia | Forte para autoria e correcoes; retencao/compliance exigem discovery |
 | Tamanho esperado | Potencialmente grande; deve ser separado de Atendimento se regras clinicas se confirmarem |
@@ -165,7 +167,7 @@
 | Aggregate Root | `Cobranca` ou `ContaAReceber` |
 | Entidades internas | Itens, pagamentos, ajustes, responsavel financeiro |
 | Value Objects candidatos | `CobrancaId`, `Money`, `ItemCobrado`, `SituacaoDaCobranca`, `ResponsavelFinanceiro` |
-| Invariantes conhecidas | valores owned por Cobranca; item cobrado deve ter origem rastreavel; pagador nao e automaticamente tutor responsavel |
+| Invariantes candidatas, nao vigentes | valores owned por Cobranca; item cobrado deve ter origem rastreavel; pagador nao e automaticamente tutor responsavel |
 | Operacoes candidatas | gerar, adicionar item, aplicar desconto, receber pagamento, cancelar |
 | Consistencia | Financeira local; integracao com Atendimento/Catalogo por snapshot ou contrato |
 | Tamanho esperado | Medio/grande conforme pagamentos e fiscal |

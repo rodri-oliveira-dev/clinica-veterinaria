@@ -32,12 +32,15 @@ Disponibilidade fica antes de Agendamento, mas com criterio de reavaliacao forte
 
 ## Descobertas obrigatorias antes de cada SDD
 
+Cada descoberta abaixo deve referenciar um item `DISC-*` quando houver dependencia semantica. Ausencia de resposta nao autoriza transformar uma hipotese em regra; o SDD deve reduzir escopo ou registrar explicitamente o bloqueio.
+
 ### Catalogo de servicos
 
 - Quem cria e altera servicos no tenant?
 - Duracao padrao e obrigatoria?
 - Preco padrao e apenas referencia ou regra financeira?
 - Servico pode exigir profissional, recurso ou unidade?
+- Item de discovery: DISC-011.
 
 ### Profissionais
 
@@ -45,6 +48,7 @@ Disponibilidade fica antes de Agendamento, mas com criterio de reavaliacao forte
 - Quais credenciais sao exigidas?
 - Profissional atua em uma ou muitas unidades?
 - Quais papeis sao permissao tecnica e quais sao dominio?
+- Item de discovery: DISC-010.
 
 ### Disponibilidade
 
@@ -52,6 +56,7 @@ Disponibilidade fica antes de Agendamento, mas com criterio de reavaliacao forte
 - A escala e do profissional, da unidade ou da agenda?
 - Bloqueios e ferias precisam aprovacao?
 - Recursos fisicos entram no mesmo conflito?
+- Item de discovery: DISC-009.
 
 ### Agenda
 
@@ -59,6 +64,8 @@ Disponibilidade fica antes de Agendamento, mas com criterio de reavaliacao forte
 - Quais estados existem antes do atendimento?
 - Qual conflito gera `409`?
 - Remarcacao exige versao?
+- Quem pode solicitar, confirmar, cancelar, remarcar, levar ou buscar o animal?
+- Item de discovery: DISC-001.
 
 ### Atendimento
 
@@ -66,6 +73,8 @@ Disponibilidade fica antes de Agendamento, mas com criterio de reavaliacao forte
 - O que e servico realizado?
 - Quem registra responsavel presente?
 - O que deve virar prontuario e o que e apenas operacional?
+- Consentimento ou autorizacao clinica sao necessarios?
+- Item de discovery: DISC-006.
 
 ### Cobranca
 
@@ -73,6 +82,22 @@ Disponibilidade fica antes de Agendamento, mas com criterio de reavaliacao forte
 - Quem e responsavel financeiro?
 - Orcamento e cobranca sao o mesmo aggregate?
 - O valor vem do catalogo, do contrato, do atendimento ou de ajuste manual?
+- Quem e pagador e quem recebe a cobranca?
+- Item de discovery: DISC-005.
+
+## Prontidao por discovery
+
+| Capacidade | Prontidao | Bloqueio de discovery | Criterio de prontidao |
+| --- | --- | --- | --- |
+| Cadastro de Tutores e Animais | Pronta para manutencao incremental | Nenhum para Entrega 1 | Manter BR-* vigentes e ADRs atuais. |
+| Catalogo de Servicos | Parcialmente compreendida | DISC-011 | Campos minimos e ownership de preco/duracao definidos. |
+| Profissionais / Workforce | Parcialmente compreendida | DISC-010 | Separacao entre usuario, profissional, credencial e autoria. |
+| Disponibilidade | Bloqueada por discovery | DISC-009 | Owner e invariantes de escala/bloqueio/slot decididos. |
+| Agenda | Bloqueada por discovery | DISC-001, DISC-009 | Atores, estados, cancelamento, conflitos e contratos upstream definidos. |
+| Atendimento | Parcialmente compreendida | DISC-006, DISC-010 | Fronteira com Agenda/Prontuario e consentimento quando aplicavel. |
+| Prontuario | Fora do MVP atual | DISC-002, DISC-006, DISC-007 | Acesso, autoria, retencao, correcao e auditoria validados. |
+| Cobranca | Bloqueada por discovery | DISC-005, DISC-011 | Papeis financeiros, origem de valor e autorizacao definidos. |
+| Notifications | Fora do MVP atual | DISC-012 | Finalidade, canal, preferencias, payload minimo e retencao definidos. |
 
 ## Gates tecnicos esperados
 

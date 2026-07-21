@@ -5,6 +5,25 @@ namespace PetShop.IntegrationTests;
 
 public sealed class OpenApiContractTests : IDisposable
 {
+    private static readonly string[] FutureCapabilityContractTerms =
+    [
+        "autorizadorClinico",
+        "autorizacaoClinica",
+        "billing",
+        "consentimento",
+        "direitosDoTitular",
+        "healthRecord",
+        "legalRepresentative",
+        "medicalRecord",
+        "pagador",
+        "payer",
+        "prontuario",
+        "proprietarioLegal",
+        "representanteLegal",
+        "responsavelFinanceiro",
+        "titularDeDados"
+    ];
+
     private readonly PetShopApiFactory _factory = new(
         "Host=localhost;Port=1;Database=petshop;Username=petshop;Password=petshop");
 
@@ -52,6 +71,7 @@ public sealed class OpenApiContractTests : IDisposable
 
         JsonElement paths = root.GetProperty("paths");
         AssertOpenApiDoesNotExposeTenantInput(root);
+        AssertOpenApiDoesNotExposeFutureCapabilityContracts(root);
         Assert.True(paths.GetProperty("/tutores").TryGetProperty("post", out JsonElement cadastrarTutor));
         Assert.True(paths.GetProperty("/tutores").TryGetProperty("get", out JsonElement pesquisarTutores));
         Assert.True(paths.GetProperty("/tutores/{tutorId}").TryGetProperty("get", out JsonElement consultarTutor));
@@ -79,6 +99,18 @@ public sealed class OpenApiContractTests : IDisposable
         AssertSecuredModuleOperation(transferirResponsabilidade);
         AssertSecuredModuleOperation(registrarFalecimento);
         AssertSecuredModuleOperation(inativarAnimal);
+        Assert.Contains(
+            "TutorResponsavelId nao representa consentimento clinico",
+            cadastrarAnimal.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "A transferencia nao registra consentimento clinico",
+            transferirResponsabilidade.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Esse filtro nao consulta autorizacoes clinicas",
+            pesquisarAnimais.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
         Assert.True(cadastrarAnimal.GetProperty("responses").TryGetProperty("409", out _));
         Assert.Contains(
             consultarTutor.GetProperty("parameters").EnumerateArray(),
@@ -130,6 +162,54 @@ public sealed class OpenApiContractTests : IDisposable
 
                 break;
         }
+    }
+
+    private static void AssertOpenApiDoesNotExposeFutureCapabilityContracts(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (JsonProperty property in element.EnumerateObject())
+                {
+                    Assert.DoesNotContain(
+                        FutureCapabilityContractTerms,
+                        term => property.Name.Contains(term, StringComparison.Ordinal));
+
+                    if (IsContractNameProperty(property))
+                    {
+                        AssertDoesNotContainFutureCapabilityTerm(property.Value.GetString());
+                    }
+
+                    AssertOpenApiDoesNotExposeFutureCapabilityContracts(property.Value);
+                }
+
+                break;
+            case JsonValueKind.Array:
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    AssertOpenApiDoesNotExposeFutureCapabilityContracts(item);
+                }
+
+                break;
+        }
+    }
+
+    private static bool IsContractNameProperty(JsonProperty property) =>
+        property.Value.ValueKind == JsonValueKind.String &&
+        (property.NameEquals("name") ||
+         property.NameEquals("operationId") ||
+         property.NameEquals("$ref"));
+
+    private static void AssertDoesNotContainFutureCapabilityTerm(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        Assert.DoesNotContain(
+            FutureCapabilityContractTerms,
+            term => value.Contains(term, StringComparison.Ordinal));
     }
 
     public void Dispose()

@@ -136,6 +136,15 @@ Quando uma recomendação não fizer sentido, registre a decisão em vez de cria
 - Não crie evento para toda mudança de propriedade.
 - Não use um projeto `Shared` como depósito de conceitos de domínio.
 
+## Produto e discovery
+
+- Ao descobrir, especificar ou revisar capacidades de produto, use `.agents/skills/veterinary-product-owner/SKILL.md`.
+- Use essa skill para jornadas, épicos, backlog, regras de negócio, critérios de aceite, glossário, priorização, riscos, compliance funcional e revisão funcional de SDDs.
+- Separe explicitamente fatos confirmados, hipóteses, decisões de produto, regras vigentes, políticas configuráveis e questões abertas.
+- Não transforme hipóteses em regras ou implementação apenas para completar uma tarefa.
+- A skill fornece contexto funcional e invariantes, mas não substitui decisões de arquitetura, implementação técnica, parecer jurídico ou decisão clínica.
+- Quando uma tarefa envolver produto e implementação, use primeiro `veterinary-product-owner` para esclarecer comportamento e invariantes; depois selecione as skills técnicas aplicáveis.
+
 ## APIs e contratos
 
 - Endpoints devem permanecer finos.

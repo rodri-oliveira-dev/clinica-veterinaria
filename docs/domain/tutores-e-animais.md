@@ -4,7 +4,7 @@
 
 Registrar a linguagem ubiqua, as responsabilidades e a fronteira inicial da primeira fatia de negocio da plataforma: cadastro e manutencao de tutores, animais e seus vinculos dentro de uma clinica veterinaria.
 
-Este documento orienta e consolida a Entrega 1. As primeiras secoes registram linguagem e fronteira; as secoes posteriores documentam as entidades, tabelas, endpoints, contratos HTTP e decisoes fisicas efetivamente introduzidas pelos SDDs 13 a 20.
+Este documento orienta e consolida a Entrega 1. As primeiras secoes registram linguagem e fronteira; as secoes posteriores documentam as entidades, tabelas, endpoints, contratos HTTP e decisoes fisicas efetivamente introduzidas pelos SDDs 13 a 24.
 
 ## Decisao de fronteira
 

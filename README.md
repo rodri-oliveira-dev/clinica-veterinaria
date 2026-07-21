@@ -48,6 +48,7 @@ As decisoes completas estao em:
 - `docs/adrs/0003-fronteira-cadastro-tutores-animais.md`
 - `docs/adrs/0004-relacao-tutores-animais-responsabilidade.md`
 - `docs/adrs/0005-ciclo-de-vida-animal.md`
+- `docs/adrs/0006-ownership-relacionamento-tutores-animais.md`
 
 ## Requisitos
 

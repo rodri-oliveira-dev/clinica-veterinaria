@@ -3,6 +3,8 @@
 - **Data:** 2026-07-21
 - **Escopo:** SDD 26
 
+Para capacidades com status diferente de `Confirmado`, a coluna `Invariantes` registra hipoteses de consistencia para discovery, nao regras vigentes. Antes de implementar schema, contrato, validacao ou autorizacao, relacione a capacidade ao backlog `docs/domain/discovery-backlog.md`.
+
 | Capacidade | Dados proprios | Operacoes | Invariantes | Consumidores | Status |
 | --- | --- | --- | --- | --- | --- |
 | Tutor | `tutores`, contatos, situacao, CPF mascarado em respostas | cadastrar, consultar, pesquisar, atualizar, inativar | tenant obrigatorio; CPF unico por tenant quando informado; ao menos um contato; tutor com animal ativo vinculado nao pode ser inativado | API atual; Agenda/Atendimento/Cobranca futuros por contrato | Confirmado |

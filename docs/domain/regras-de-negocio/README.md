@@ -9,5 +9,8 @@ Artefatos:
 - [lacunas-hipoteses-politicas.md](lacunas-hipoteses-politicas.md): hipoteses, politicas candidatas, lacunas e riscos.
 - [glossario.md](glossario.md): termos aceitos, reservados, ambiguos e proibidos.
 - [convencao.md](convencao.md): numeracao, ciclo de vida e manutencao do catalogo.
+- [../discovery-backlog.md](../discovery-backlog.md): backlog central `DISC-*` para hipoteses, questoes abertas, decisoes adiadas e hipoteses descartadas.
 
-Este catalogo nao cria regras novas. Ele registra somente fatos confirmados, decisoes aceitas, regras implementadas e lacunas encontradas em README, ADRs, documentacao de dominio, codigo, testes e migrations dos SDDs 12 a 24.
+Este catalogo nao cria regras novas. Ele registra somente fatos confirmados, decisoes aceitas, regras implementadas e lacunas encontradas em README, ADRs, documentacao de dominio, codigo, testes e migrations dos SDDs 12 a 28.
+
+Hipoteses nao devem ser copiadas para o catalogo vigente. Elas devem permanecer no backlog de discovery ate que haja evidencia suficiente para promocao a regra `BR-*`.

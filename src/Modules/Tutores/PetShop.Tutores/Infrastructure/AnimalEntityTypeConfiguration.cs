@@ -53,7 +53,10 @@ internal sealed class AnimalEntityTypeConfiguration : IEntityTypeConfiguration<A
                     "sexo IN (0, 1, 2)");
                 table.HasCheckConstraint(
                     "ck_animais_situacao",
-                    "situacao IN (1, 2)");
+                    "situacao IN (1, 2, 3)");
+                table.HasCheckConstraint(
+                    "ck_animais_data_falecimento_situacao",
+                    "(situacao = 3 AND data_do_falecimento IS NOT NULL) OR (situacao <> 3 AND data_do_falecimento IS NULL)");
             });
 
         builder.HasKey(animal => animal.Id);
@@ -109,6 +112,13 @@ internal sealed class AnimalEntityTypeConfiguration : IEntityTypeConfiguration<A
             .HasConversion(
                 data => data.HasValue ? data.Value.Valor : (DateOnly?)null,
                 valor => valor.HasValue ? DataDeNascimento.Criar(valor.Value, valor.Value) : (DataDeNascimento?)null);
+
+        builder.Property(animal => animal.DataDoFalecimento)
+            .HasColumnName("data_do_falecimento")
+            .HasColumnType("date")
+            .HasConversion(
+                data => data.HasValue ? data.Value.Valor : (DateOnly?)null,
+                valor => valor.HasValue ? DataDoFalecimento.Criar(valor.Value, valor.Value) : (DataDoFalecimento?)null);
 
         builder.Property(animal => animal.CorOuPelagem)
             .HasColumnName("cor_ou_pelagem")

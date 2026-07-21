@@ -410,6 +410,87 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
     }
 
     [Fact]
+    public async Task RegistrarFalecimento_ComDadosValidos_MarcaFalecidoEBloqueiaFluxosIncompativeis()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient client = CriarClienteAutorizado(TenantA);
+        Guid tutorId = await CadastrarTutorELerIdAsync(client, "Maria Oliveira", "529.982.247-25");
+        Guid tutorNovoId = await CadastrarTutorELerIdAsync(client, "Bruna Lima", "123.456.789-09");
+        Guid animalId = await CadastrarAnimalELerIdAsync(client, tutorId, "Luna", "Canina");
+        int versao = await ConsultarVersaoAnimalAsync(client, animalId);
+
+        using HttpResponseMessage response = await RegistrarFalecimentoAsync(
+            client,
+            animalId,
+            "2026-07-19");
+
+        await AssertStatusCodeAsync(HttpStatusCode.OK, response);
+        JsonElement animalFalecido = await ReadJsonAsync(response);
+        Assert.Equal("falecido", animalFalecido.GetProperty("situacao").GetString());
+        Assert.Equal("2026-07-19", animalFalecido.GetProperty("dataDoFalecimento").GetString());
+        Assert.Equal(versao + 1, animalFalecido.GetProperty("versao").GetInt32());
+        Assert.False(animalFalecido.TryGetProperty("tenantId", out _));
+
+        using HttpResponseMessage atualizacao = await client.PutAsJsonAsync(
+            $"/animais/{animalId:D}",
+            new
+            {
+                nome = "Sol",
+                especie = "Felina",
+                sexo = "femea"
+            },
+            TestContext.Current.CancellationToken);
+
+        await AssertStatusCodeAsync(HttpStatusCode.Conflict, atualizacao);
+        await AssertProblemDetailsAsync(atualizacao, HttpStatusCode.Conflict, "resource.conflict");
+
+        using HttpResponseMessage transferencia = await TransferirResponsabilidadeAsync(
+            client,
+            animalId,
+            tutorNovoId,
+            versao + 1);
+
+        await AssertStatusCodeAsync(HttpStatusCode.Conflict, transferencia);
+        await AssertProblemDetailsAsync(transferencia, HttpStatusCode.Conflict, "resource.conflict");
+    }
+
+    [Fact]
+    public async Task RegistrarFalecimento_ComDataFutura_RetornaValidationProblemDetails()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient client = CriarClienteAutorizado(TenantA);
+        Guid tutorId = await CadastrarTutorELerIdAsync(client, "Maria Oliveira", "529.982.247-25");
+        Guid animalId = await CadastrarAnimalELerIdAsync(client, tutorId, "Luna", "Canina");
+
+        using HttpResponseMessage response = await RegistrarFalecimentoAsync(
+            client,
+            animalId,
+            "2999-01-01");
+
+        await AssertStatusCodeAsync(HttpStatusCode.BadRequest, response);
+        JsonElement problem = await AssertProblemDetailsAsync(response, HttpStatusCode.BadRequest, "request.invalid");
+        Assert.True(problem.GetProperty("errors").TryGetProperty("dataDoFalecimento", out _));
+    }
+
+    [Fact]
+    public async Task RegistrarFalecimento_ComDadosDeOutroTenant_RetornaNotFound()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient tenantA = CriarClienteAutorizado(TenantA);
+        using HttpClient tenantB = CriarClienteAutorizado(TenantB);
+        Guid tutorA = await CadastrarTutorELerIdAsync(tenantA, "Maria Oliveira", "529.982.247-25");
+        Guid animalA = await CadastrarAnimalELerIdAsync(tenantA, tutorA, "Luna", "Canina");
+
+        using HttpResponseMessage response = await RegistrarFalecimentoAsync(
+            tenantB,
+            animalA,
+            "2026-07-19");
+
+        await AssertStatusCodeAsync(HttpStatusCode.NotFound, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.NotFound, "resource.not_found");
+    }
+
+    [Fact]
     public async Task PesquisarAnimais_AplicaFiltrosPaginacaoOrdenacaoEIsolamento()
     {
         await _postgresql.ResetDatabaseAsync();
@@ -451,6 +532,22 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
         JsonElement filtro = await ReadJsonAsync(porEspecieSituacao);
         Assert.Equal(1, filtro.GetProperty("total").GetInt32());
         Assert.Equal("Amora", filtro.GetProperty("itens")[0].GetProperty("nome").GetString());
+
+        Guid animalFalecido = await CadastrarAnimalELerIdAsync(tenantA, tutorA, "Zeca", "Canina");
+        using HttpResponseMessage falecimento = await RegistrarFalecimentoAsync(
+            tenantA,
+            animalFalecido,
+            "2026-07-19");
+        await AssertStatusCodeAsync(HttpStatusCode.OK, falecimento);
+
+        using HttpResponseMessage porSituacaoFalecido = await tenantA.GetAsync(
+            "/animais?situacao=falecido",
+            TestContext.Current.CancellationToken);
+
+        await AssertStatusCodeAsync(HttpStatusCode.OK, porSituacaoFalecido);
+        JsonElement filtroFalecido = await ReadJsonAsync(porSituacaoFalecido);
+        Assert.Equal(1, filtroFalecido.GetProperty("total").GetInt32());
+        Assert.Equal("falecido", filtroFalecido.GetProperty("itens")[0].GetProperty("situacao").GetString());
     }
 
     [Fact]
@@ -611,6 +708,18 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
                 novoTutorId,
                 versao,
                 motivo
+            },
+            TestContext.Current.CancellationToken);
+
+    private static async Task<HttpResponseMessage> RegistrarFalecimentoAsync(
+        HttpClient client,
+        Guid animalId,
+        string dataDoFalecimento) =>
+        await client.PostAsJsonAsync(
+            $"/animais/{animalId:D}/falecimento",
+            new
+            {
+                dataDoFalecimento
             },
             TestContext.Current.CancellationToken);
 

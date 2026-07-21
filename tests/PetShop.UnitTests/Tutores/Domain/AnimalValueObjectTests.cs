@@ -77,6 +77,23 @@ public sealed class AnimalValueObjectTests
     }
 
     [Fact]
+    public void DataDoFalecimento_Criar_ComDataHoje_Aceita()
+    {
+        DataDoFalecimento dataDoFalecimento = DataDoFalecimento.Criar(Hoje, Hoje);
+
+        Assert.Equal(Hoje, dataDoFalecimento.Valor);
+    }
+
+    [Fact]
+    public void DataDoFalecimento_Criar_ComDataFutura_Rejeita()
+    {
+        ArgumentException exception = Assert.Throws<ArgumentException>(() =>
+            DataDoFalecimento.Criar(Hoje.AddDays(1), Hoje));
+
+        Assert.Contains("futuro", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CorOuPelagem_Criar_NormalizaEspacosExternos()
     {
         CorOuPelagem corOuPelagem = CorOuPelagem.Criar("  Preto e branco  ");
@@ -137,6 +154,7 @@ public sealed class AnimalValueObjectTests
         Assert.Equal(CorOuPelagem.Criar("Caramelo"), CorOuPelagem.Criar(" Caramelo "));
         Assert.Equal(ObservacaoCadastral.Criar("Observacao"), ObservacaoCadastral.Criar(" Observacao "));
         Assert.Equal(DataDeNascimento.Criar(Hoje, Hoje), DataDeNascimento.Criar(Hoje, Hoje));
+        Assert.Equal(DataDoFalecimento.Criar(Hoje, Hoje), DataDoFalecimento.Criar(Hoje, Hoje));
         Assert.Equal(TutorResponsavel.Criar(tutorId), TutorResponsavel.Criar(tutorId));
     }
 }

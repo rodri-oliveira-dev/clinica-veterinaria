@@ -141,6 +141,7 @@ internal sealed class AnimaisRepository : IAnimaisRepository
         {
             SituacaoDoAnimal.Ativo => "ativo",
             SituacaoDoAnimal.Inativo => "inativo",
+            SituacaoDoAnimal.Falecido => "falecido",
             _ => throw new ArgumentOutOfRangeException(nameof(situacao), situacao, null)
         };
 }

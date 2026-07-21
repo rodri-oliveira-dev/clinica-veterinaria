@@ -367,6 +367,47 @@ public sealed class AnimaisPersistenceTests : IClassFixture<PostgreSqlFixture>
     }
 
     [Fact]
+    public async Task Falecimento_PersisteSituacaoEData()
+    {
+        await _postgresql.ResetDatabaseAsync();
+
+        Guid tutorId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa14");
+        Guid animalId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb14");
+        DateOnly dataDoFalecimento = new(2026, 7, 19);
+        DateTimeOffset registradoEm = CriadoEm.AddDays(1);
+
+        await SeedTutorAsync(tutorId, TenantA);
+
+        await using (PetShopDbContext dbContext = _postgresql.CreateDbContext(TenantA))
+        {
+            dbContext.Set<Animal>().Add(CriarAnimal(animalId, TenantA, tutorId));
+
+            await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using (PetShopDbContext dbContext = _postgresql.CreateDbContext(TenantA))
+        {
+            Animal animal = await dbContext.Set<Animal>()
+                .SingleAsync(animal => animal.Id == AnimalId.Criar(animalId), TestContext.Current.CancellationToken);
+
+            animal.RegistrarFalecimento(
+                DataDoFalecimento.Criar(dataDoFalecimento, Hoje),
+                registradoEm);
+
+            await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using PetShopDbContext leitura = _postgresql.CreateDbContext(TenantA);
+        Animal animalFalecido = await leitura.Set<Animal>()
+            .SingleAsync(animal => animal.Id == AnimalId.Criar(animalId), TestContext.Current.CancellationToken);
+
+        Assert.Equal(SituacaoDoAnimal.Falecido, animalFalecido.Situacao);
+        Assert.False(animalFalecido.EstaAtivo);
+        Assert.Equal(dataDoFalecimento, animalFalecido.DataDoFalecimento?.Valor);
+        Assert.Equal(registradoEm, animalFalecido.AtualizadoEm);
+    }
+
+    [Fact]
     public async Task SexoForaDoDominio_EhRejeitadoPeloBanco()
     {
         await _postgresql.ResetDatabaseAsync();
@@ -388,6 +429,67 @@ public sealed class AnimaisPersistenceTests : IClassFixture<PostgreSqlFixture>
                 "Luna",
                 "Canina",
                 99,
+                (int)SituacaoDoAnimal.Ativo,
+                tutorId,
+                CriadoEm,
+                CriadoEm));
+
+        Assert.Equal(PostgresErrorCodes.CheckViolation, UnwrapPostgresException(exception).SqlState);
+    }
+
+    [Fact]
+    public async Task FalecimentoSemData_EhRejeitadoPeloBanco()
+    {
+        await _postgresql.ResetDatabaseAsync();
+
+        Guid tutorId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa15");
+        await SeedTutorAsync(tutorId, TenantA);
+
+        await using PetShopDbContext dbContext = _postgresql.CreateDbContext(TenantA);
+
+        Exception exception = await Assert.ThrowsAnyAsync<Exception>(() =>
+            dbContext.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO animais (
+                    id, tenant_id, nome, especie, sexo, situacao, tutor_responsavel_id, criado_em, atualizado_em)
+                VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8})
+                """,
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb15"),
+                TenantA,
+                "Luna",
+                "Canina",
+                (int)SexoDoAnimal.Femea,
+                (int)SituacaoDoAnimal.Falecido,
+                tutorId,
+                CriadoEm,
+                CriadoEm));
+
+        Assert.Equal(PostgresErrorCodes.CheckViolation, UnwrapPostgresException(exception).SqlState);
+    }
+
+    [Fact]
+    public async Task DataDoFalecimentoSemSituacaoFalecido_EhRejeitadaPeloBanco()
+    {
+        await _postgresql.ResetDatabaseAsync();
+
+        Guid tutorId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa16");
+        await SeedTutorAsync(tutorId, TenantA);
+
+        await using PetShopDbContext dbContext = _postgresql.CreateDbContext(TenantA);
+
+        Exception exception = await Assert.ThrowsAnyAsync<Exception>(() =>
+            dbContext.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO animais (
+                    id, tenant_id, nome, especie, sexo, data_do_falecimento, situacao, tutor_responsavel_id, criado_em, atualizado_em)
+                VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9})
+                """,
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb16"),
+                TenantA,
+                "Luna",
+                "Canina",
+                (int)SexoDoAnimal.Femea,
+                new DateOnly(2026, 7, 19),
                 (int)SituacaoDoAnimal.Ativo,
                 tutorId,
                 CriadoEm,

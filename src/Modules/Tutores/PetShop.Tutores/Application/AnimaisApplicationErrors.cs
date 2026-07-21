@@ -59,7 +59,15 @@ internal sealed class AnimalJaInativoException : Exception
 internal sealed class AnimalInativoException : Exception
 {
     public AnimalInativoException()
-        : base("O animal informado esta inativo.")
+        : base("O animal informado nao esta ativo.")
+    {
+    }
+}
+
+internal sealed class AnimalFalecidoException : Exception
+{
+    public AnimalFalecidoException()
+        : base("O animal informado esta falecido.")
     {
     }
 }

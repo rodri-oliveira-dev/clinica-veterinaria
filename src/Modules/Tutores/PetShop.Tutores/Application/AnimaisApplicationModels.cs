@@ -28,6 +28,10 @@ internal sealed record TransferirResponsabilidadeDoAnimalCommand(
     int Versao,
     string? Motivo);
 
+internal sealed record RegistrarFalecimentoDoAnimalCommand(
+    Guid AnimalId,
+    DateOnly? DataDoFalecimento);
+
 internal sealed record PesquisarAnimaisQuery(
     int? Pagina,
     int? TamanhoPagina,
@@ -46,6 +50,7 @@ internal sealed record AnimalDetalhe(
     string? Raca,
     string Sexo,
     DateOnly? DataDeNascimento,
+    DateOnly? DataDoFalecimento,
     string? CorOuPelagem,
     string? ObservacaoCadastral,
     string Situacao,

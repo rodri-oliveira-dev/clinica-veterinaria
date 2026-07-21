@@ -98,6 +98,11 @@ internal sealed class AnimaisApplicationService
             ValidarAnimalId(command.AnimalId),
             cancellationToken);
 
+        if (animal.Situacao == SituacaoDoAnimal.Falecido)
+        {
+            throw new AnimalFalecidoException();
+        }
+
         animal.AlterarCadastro(
             dados.Nome,
             dados.Especie,
@@ -181,11 +186,37 @@ internal sealed class AnimaisApplicationService
         return MapearDetalhe(animal);
     }
 
+    public async Task<AnimalDetalhe> RegistrarFalecimentoAsync(
+        RegistrarFalecimentoDoAnimalCommand command,
+        CancellationToken cancellationToken)
+    {
+        DataDoFalecimento dataDoFalecimento = ValidarDataDoFalecimento(command.DataDoFalecimento);
+        Animal animal = await ObterAnimalOuFalharAsync(ValidarAnimalId(command.AnimalId), cancellationToken);
+
+        try
+        {
+            animal.RegistrarFalecimento(dataDoFalecimento, _timeProvider.GetUtcNow());
+        }
+        catch (InvalidOperationException)
+        {
+            throw new AnimalFalecidoException();
+        }
+
+        await _repository.SalvarAsync(cancellationToken);
+
+        return MapearDetalhe(animal);
+    }
+
     public async Task<AnimalDetalhe> InativarAsync(
         Guid animalId,
         CancellationToken cancellationToken)
     {
         Animal animal = await ObterAnimalOuFalharAsync(ValidarAnimalId(animalId), cancellationToken);
+
+        if (animal.Situacao == SituacaoDoAnimal.Falecido)
+        {
+            throw new AnimalFalecidoException();
+        }
 
         try
         {
@@ -273,6 +304,29 @@ internal sealed class AnimaisApplicationService
             throw new EntradaInvalidaException(new Dictionary<string, string[]>
             {
                 ["versao"] = ["A versao do animal deve ser maior ou igual a 1."]
+            });
+        }
+    }
+
+    private DataDoFalecimento ValidarDataDoFalecimento(DateOnly? dataDoFalecimento)
+    {
+        if (!dataDoFalecimento.HasValue)
+        {
+            throw new EntradaInvalidaException(new Dictionary<string, string[]>
+            {
+                ["dataDoFalecimento"] = ["A data do falecimento do animal deve ser informada."]
+            });
+        }
+
+        try
+        {
+            return DataDoFalecimento.Criar(dataDoFalecimento.Value, DataAtual());
+        }
+        catch (ArgumentException ex)
+        {
+            throw new EntradaInvalidaException(new Dictionary<string, string[]>
+            {
+                ["dataDoFalecimento"] = [ex.Message]
             });
         }
     }
@@ -440,10 +494,11 @@ internal sealed class AnimaisApplicationService
         {
             "ativo" => SituacaoDoAnimal.Ativo,
             "inativo" => SituacaoDoAnimal.Inativo,
+            "falecido" => SituacaoDoAnimal.Falecido,
             _ => RegistrarErro<SituacaoDoAnimal?>(
                 erros,
                 "situacao",
-                "A situacao deve ser ativo ou inativo.")
+                "A situacao deve ser ativo, inativo ou falecido.")
         };
     }
 
@@ -509,6 +564,7 @@ internal sealed class AnimaisApplicationService
             animal.Raca?.Valor,
             MapearSexo(animal.Sexo),
             animal.DataDeNascimento?.Valor,
+            animal.DataDoFalecimento?.Valor,
             animal.CorOuPelagem?.Valor,
             animal.ObservacaoCadastral?.Valor,
             MapearSituacao(animal.Situacao),
@@ -531,6 +587,7 @@ internal sealed class AnimaisApplicationService
         {
             SituacaoDoAnimal.Ativo => "ativo",
             SituacaoDoAnimal.Inativo => "inativo",
+            SituacaoDoAnimal.Falecido => "falecido",
             _ => throw new ArgumentOutOfRangeException(nameof(situacao), situacao, null)
         };
 

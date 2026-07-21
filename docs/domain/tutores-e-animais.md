@@ -29,7 +29,16 @@ A separacao futura em modulos ou Bounded Contexts distintos fica adiada ate exis
 | Proprietario declarado | Hipotese | Pessoa declarada como proprietaria do animal. Nao e validada nem inferida a partir de `Tutor` nesta etapa. |
 | Responsavel financeiro | Hipotese | Pessoa ou organizacao que assume cobrancas. Nao e inferida a partir de `Tutor` e fica reservada para discovery de Cobranca. |
 | Contato | Fato confirmado | Canal de comunicacao do tutor, como telefone ou e-mail. |
-| Situacao | Fato confirmado | Estado operacional de tutor ou animal, atualmente `ativo` ou `inativo`. |
+| Situacao | Fato confirmado | Estado operacional de tutor ou animal. Para Animal, atualmente `ativo`, `inativo` ou `falecido`. |
+| Animal ativo | Decisao vigente | Animal cadastrado e operacionalmente disponivel para fluxos comuns. |
+| Animal inativo | Decisao vigente | Animal retirado do uso comum por motivo administrativo ou operacional nao especificado, sem hard delete. |
+| Animal falecido | Decisao vigente | Animal com falecimento registrado no cadastro operacional, com data obrigatoria e sem novos fluxos comuns incompativeis. |
+| Animal desaparecido | Hipotese | Situacao operacional relevante, mas adiada ate existir fluxo de marcacao, reaparecimento e impacto em agenda. |
+| Especie | Decisao vigente | Classificacao textual obrigatoria do animal no cadastro basico, sem catalogo neste MVP. |
+| Raca | Decisao vigente | Informacao textual opcional; pode representar raca informada, `SRD` ou ficar ausente. |
+| Idade estimada | Hipotese | Informacao aproximada ainda nao implementada. A idade nao e persistida como dado derivado. |
+| Identificador externo | Hipotese | Codigo ou identificador diferente do `AnimalId` tecnico; nao implementado nesta fatia. |
+| Microchip | Hipotese | Possivel identificador externo futuro; sem regra atual de unicidade global, por tenant ou informativa. |
 | Transferencia de responsabilidade | Decisao vigente | Operacao explicita que altera o tutor responsavel vigente de um animal ativo para outro tutor ativo do mesmo tenant, com concorrencia por `versao` e historico minimo append-only. |
 
 ## Termos aceitos e evitados
@@ -129,6 +138,8 @@ O SDD 20 adiciona o caso de uso explicito `TransferirResponsabilidadeDoAnimal`, 
 - Um animal novo deve ser vinculado a tutor responsavel ativo.
 - A transferencia de responsabilidade de um animal exige confirmacao explicita.
 - A transferencia de responsabilidade so ocorre para animal ativo e novo tutor responsavel ativo.
+- Falecimento de animal e uma transicao explicita, exige data de falecimento e nao equivale a inativacao cadastral.
+- Animal falecido nao pode ter cadastro comum alterado, ser inativado ou ter responsabilidade transferida.
 - Inativar tutor ou animal nao deve apagar historico futuro de atendimento ou faturamento, quando esses contextos existirem.
 - O conceito de tutor nao presume propriedade legal do animal.
 - Responsavel financeiro nao deve ser inferido a partir do tutor sem requisito de negocio.
@@ -168,12 +179,16 @@ Campos e regras iniciais:
 - `Raca` e opcional e tambem textual, evitando catalogo completo sem requisito;
 - `SexoDoAnimal` aceita `NaoInformado`, `Macho` ou `Femea`;
 - `DataDeNascimento` e opcional, mas nao pode estar no futuro quando informada;
+- `DataDoFalecimento` existe somente para animal falecido, e nao pode estar no futuro;
 - `CorOuPelagem` e `ObservacaoCadastral` sao opcionais e removem espacos externos quando usadas;
 - animal nasce com `SituacaoDoAnimal.Ativo`;
 - inativacao muda a situacao para inativo, registra `InativadoEm` e atualiza `AtualizadoEm`;
+- falecimento muda a situacao para falecido, registra `DataDoFalecimento` e atualiza `AtualizadoEm`;
 - alteracoes de cadastro preservam identidade, tenant, tutor responsavel e `CriadoEm`, e atualizam `AtualizadoEm`.
 
 A decisao por `Especie` e `Raca` textuais reduz complexidade inicial e evita criar catalogos de especies ou racas antes de existir regra de negocio, curadoria ou ownership claro para esses dados.
+
+O SDD 23 mantem idade estimada, microchip, desaparecimento, deduplicacao e alertas clinicos fora do codigo. Idade continua calculavel a partir de `DataDeNascimento` quando houver data exata; quando a data for desconhecida, o cadastro nao fabrica precisao.
 
 ## Persistencia inicial de Tutor
 
@@ -226,6 +241,7 @@ Colunas:
 - `raca`;
 - `sexo`;
 - `data_de_nascimento`;
+- `data_do_falecimento`;
 - `cor_ou_pelagem`;
 - `observacao_cadastral`;
 - `situacao`;
@@ -243,6 +259,7 @@ Decisoes:
 - Essa FK composta impede associacao cross-tenant no banco. Um tutor de outro tenant nao satisfaz a constraint e, na Application, a consulta filtrada por tenant o trata como inexistente.
 - A tabela `tutores` recebeu a alternate key `(tenant_id, id)` apenas para suportar a FK composta; o ownership continua no mesmo modulo.
 - `AnimalId`, `TenantId`, `TutorId`, `NomeDoAnimal`, `Especie`, `Raca`, `DataDeNascimento`, `CorOuPelagem`, `ObservacaoCadastral`, `SexoDoAnimal` e `SituacaoDoAnimal` usam conversoes EF Core no mapeamento do modulo.
+- `DataDoFalecimento` usa conversao EF Core e constraint para existir somente quando a situacao do animal for `Falecido`.
 - `versao` e usada como token de concorrencia otimista para alteracoes do animal.
 - Consultas comuns usam query filter por tenant atual.
 - Escritas usam guarda de `SaveChanges` para exigir tenant resolvido e impedir alteracao de animal pertencente a outro tenant.
@@ -309,7 +326,7 @@ Pesquisa:
 
 ## API de Animal
 
-Rotas implementadas ate o SDD 20:
+Rotas implementadas ate o SDD 23:
 
 | Metodo | Rota | Uso |
 | --- | --- | --- |
@@ -318,6 +335,7 @@ Rotas implementadas ate o SDD 20:
 | `PUT` | `/animais/{animalId}` | `AtualizarAnimal`; `animalId` vem da rota, o tenant vem da claim validada e o tutor responsavel nao e alterado. |
 | `GET` | `/animais` | `PesquisarAnimais`; suporta pagina limitada, nome, tutor responsavel, especie, situacao e ordenacao estavel. |
 | `POST` | `/animais/{animalId}/transferencias-de-responsabilidade` | `TransferirResponsabilidadeDoAnimal`; exige novo tutor ativo do mesmo tenant e versao atual do animal. |
+| `POST` | `/animais/{animalId}/falecimento` | `RegistrarFalecimentoDoAnimal`; exige `dataDoFalecimento` e marca o animal como falecido. |
 | `POST` | `/animais/{animalId}/inativacao` | `InativarAnimal`; nao realiza hard delete. |
 
 Contratos HTTP sao separados do Domain e nao expoem entidades de dominio ou persistencia. Requests de animais nao aceitam `tenant_id`, `id` nem troca de `tutorResponsavelId` na atualizacao como autoridade. Todos os endpoints exigem JWT Bearer com `tenant_id` valido e role minima `petshop.access`.
@@ -331,7 +349,7 @@ Pesquisa:
 - `nome`: filtro textual;
 - `tutorResponsavelId`: filtro por tutor responsavel no tenant atual;
 - `especie`: filtro textual normalizado pelo Value Object `Especie`;
-- `situacao`: `ativo` ou `inativo`;
+- `situacao`: `ativo`, `inativo` ou `falecido`;
 - `ordenarPor`: `nome` ou `criadoEm`;
 - `direcao`: `asc` ou `desc`.
 

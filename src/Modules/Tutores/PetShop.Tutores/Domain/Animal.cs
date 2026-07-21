@@ -10,6 +10,7 @@ internal sealed class Animal : IEquatable<Animal>
         Raca? raca,
         SexoDoAnimal sexo,
         DataDeNascimento? dataDeNascimento,
+        DataDoFalecimento? dataDoFalecimento,
         CorOuPelagem? corOuPelagem,
         ObservacaoCadastral? observacaoCadastral,
         SituacaoDoAnimal situacao,
@@ -26,6 +27,7 @@ internal sealed class Animal : IEquatable<Animal>
         Raca = raca;
         Sexo = sexo;
         DataDeNascimento = dataDeNascimento;
+        DataDoFalecimento = dataDoFalecimento;
         CorOuPelagem = corOuPelagem;
         ObservacaoCadastral = observacaoCadastral;
         Situacao = situacao;
@@ -49,6 +51,8 @@ internal sealed class Animal : IEquatable<Animal>
     public SexoDoAnimal Sexo { get; private set; }
 
     public DataDeNascimento? DataDeNascimento { get; private set; }
+
+    public DataDoFalecimento? DataDoFalecimento { get; private set; }
 
     public CorOuPelagem? CorOuPelagem { get; private set; }
 
@@ -94,6 +98,7 @@ internal sealed class Animal : IEquatable<Animal>
             raca,
             sexo,
             dataDeNascimento,
+            dataDoFalecimento: null,
             corOuPelagem,
             observacaoCadastral,
             SituacaoDoAnimal.Ativo,
@@ -116,6 +121,11 @@ internal sealed class Animal : IEquatable<Animal>
     {
         ValidarSexo(sexo);
 
+        if (Situacao == SituacaoDoAnimal.Falecido)
+        {
+            throw new InvalidOperationException("O cadastro comum do animal falecido nao pode ser alterado.");
+        }
+
         Nome = nome;
         Especie = especie;
         Raca = raca;
@@ -134,9 +144,29 @@ internal sealed class Animal : IEquatable<Animal>
             throw new InvalidOperationException("O animal ja esta inativo.");
         }
 
+        if (Situacao == SituacaoDoAnimal.Falecido)
+        {
+            throw new InvalidOperationException("O animal falecido nao pode ser inativado.");
+        }
+
         Situacao = SituacaoDoAnimal.Inativo;
         InativadoEm = inativadoEm;
         AtualizadoEm = inativadoEm;
+        Versao++;
+    }
+
+    public void RegistrarFalecimento(
+        DataDoFalecimento dataDoFalecimento,
+        DateTimeOffset registradoEm)
+    {
+        if (Situacao == SituacaoDoAnimal.Falecido)
+        {
+            throw new InvalidOperationException("O falecimento do animal ja foi registrado.");
+        }
+
+        Situacao = SituacaoDoAnimal.Falecido;
+        DataDoFalecimento = dataDoFalecimento;
+        AtualizadoEm = registradoEm;
         Versao++;
     }
 
@@ -146,7 +176,7 @@ internal sealed class Animal : IEquatable<Animal>
     {
         if (!EstaAtivo)
         {
-            throw new InvalidOperationException("O animal inativo nao pode ter responsabilidade transferida.");
+            throw new InvalidOperationException("O animal deve estar ativo para ter responsabilidade transferida.");
         }
 
         TutorId novoTutorId = TutorId.Criar(novoTutorResponsavel.TutorId);

@@ -47,6 +47,7 @@ As decisoes completas estao em:
 - `docs/adrs/0002-library-propagacao-observabilidade.md`
 - `docs/adrs/0003-fronteira-cadastro-tutores-animais.md`
 - `docs/adrs/0004-relacao-tutores-animais-responsabilidade.md`
+- `docs/adrs/0005-ciclo-de-vida-animal.md`
 
 ## Requisitos
 
@@ -160,9 +161,9 @@ Tabela funcional introduzida:
 - `documento` armazena CPF normalizado quando informado.
 - A unicidade de CPF e local ao tenant pelo indice unico `(tenant_id, documento)`, permitindo o mesmo CPF em tenants diferentes.
 - Constraints no banco impedem `id` e `tenant_id` vazios, situacao fora do dominio conhecido, documento/telefone com tamanho invalido e tutor sem contato operacional.
-- `animais`: possui `id`, `tenant_id NOT NULL`, `nome`, `especie`, `raca`, `sexo`, `data_de_nascimento`, `cor_ou_pelagem`, `observacao_cadastral`, `situacao`, `tutor_responsavel_id`, `versao`, `criado_em`, `atualizado_em` e `inativado_em`.
+- `animais`: possui `id`, `tenant_id NOT NULL`, `nome`, `especie`, `raca`, `sexo`, `data_de_nascimento`, `data_do_falecimento`, `cor_ou_pelagem`, `observacao_cadastral`, `situacao`, `tutor_responsavel_id`, `versao`, `criado_em`, `atualizado_em` e `inativado_em`.
 - O vinculo de animal com tutor usa foreign key composta `(tenant_id, tutor_responsavel_id)` para `tutores (tenant_id, id)`, porque os dois aggregates pertencem ao mesmo modulo owner nesta fase.
-- Constraints no banco impedem `id`, `tenant_id` e `tutor_responsavel_id` vazios, textos obrigatorios em branco, sexo/situacao fora do dominio conhecido e vinculo com tutor inexistente ou de outro tenant.
+- Constraints no banco impedem `id`, `tenant_id` e `tutor_responsavel_id` vazios, textos obrigatorios em branco, sexo/situacao fora do dominio conhecido, `data_do_falecimento` incoerente com a situacao e vinculo com tutor inexistente ou de outro tenant.
 - `historico_transferencias_animais`: possui `id`, `tenant_id NOT NULL`, `animal_id`, `tutor_anterior_id`, `tutor_novo_id`, `realizada_em`, `subject` e `motivo`. A tabela registra a trilha minima da transferencia de responsabilidade, sem token, claims completas, CPF, e-mail ou telefone.
 
 Estrategia multitenant da persistencia de tutores:
@@ -271,9 +272,10 @@ Endpoints funcionais de Animais:
 | `PUT` | `/animais/{animalId}` | Atualiza cadastro do animal pela rota, sem trocar tutor responsavel nem aceitar `tenant_id` ou `id` no body como autoridade. |
 | `GET` | `/animais` | Pesquisa animais com `pagina`, `tamanhoPagina`, `nome`, `tutorResponsavelId`, `especie`, `situacao`, `ordenarPor` e `direcao`. |
 | `POST` | `/animais/{animalId}/transferencias-de-responsabilidade` | Transfere explicitamente a responsabilidade de animal ativo para outro tutor ativo do tenant atual, usando `novoTutorId`, `versao` e motivo opcional. |
+| `POST` | `/animais/{animalId}/falecimento` | Registra falecimento do animal com `dataDoFalecimento`, sem apagar animal ou vinculos. |
 | `POST` | `/animais/{animalId}/inativacao` | Inativa animal sem hard delete. |
 
-Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Tutor responsavel inexistente ou pertencente a outro tenant retorna `404`; tutor responsavel inativo retorna `409`. Dados de outro tenant retornam `404` nos fluxos por identificador. As respostas de animais retornam `tutorResponsavelId` e `versao`, sem duplicar dados pessoais do tutor.
+Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Tutor responsavel inexistente ou pertencente a outro tenant retorna `404`; tutor responsavel inativo retorna `409`. Dados de outro tenant retornam `404` nos fluxos por identificador. As respostas de animais retornam `tutorResponsavelId`, `situacao`, `dataDoFalecimento` quando aplicavel e `versao`, sem duplicar dados pessoais do tutor.
 
 ## Entrega 1 - Cadastro de Tutores e Animais
 
@@ -283,6 +285,7 @@ Escopo funcional validado:
 
 - cadastrar, consultar, atualizar, pesquisar e inativar tutores;
 - cadastrar, consultar, atualizar, pesquisar e inativar animais;
+- registrar falecimento de animal com data obrigatoria;
 - vincular animal a tutor responsavel ativo do mesmo tenant;
 - transferir explicitamente a responsabilidade de animal ativo para outro tutor ativo do mesmo tenant;
 - tratar dados de outro tenant como inexistentes nos fluxos comuns;
@@ -315,6 +318,7 @@ Requests principais:
 - `PUT /animais/{animalId}`: dados cadastrais do animal; nao troca tutor responsavel.
 - `GET /animais`: `pagina`, `tamanhoPagina`, `nome`, `tutorResponsavelId`, `especie`, `situacao`, `ordenarPor`, `direcao`.
 - `POST /animais/{animalId}/transferencias-de-responsabilidade`: `novoTutorId`, `versao`, `motivo`.
+- `POST /animais/{animalId}/falecimento`: `dataDoFalecimento`.
 
 Paginacao:
 
@@ -325,7 +329,7 @@ Paginacao:
 
 Migrations e execucao local:
 
-- As quatro migrations versionadas recriam o banco desde zero: fundacao inicial, tutores, animais e historico de transferencias.
+- As cinco migrations versionadas recriam o banco desde zero: fundacao inicial, tutores, animais, historico de transferencias e ciclo de vida com falecimento.
 - A API nao aplica migrations automaticamente no startup; aplique com `dotnet ef database update`.
 - Aspire continua sendo a experiencia principal para desenvolvimento local com API, PostgreSQL, Keycloak e Dashboard.
 - Docker Compose valida a imagem da API e a stack containerizada com PostgreSQL e Keycloak.

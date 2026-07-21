@@ -24,6 +24,7 @@ public sealed class AnimalTests
         Assert.Equal("SRD", animal.Raca?.Valor);
         Assert.Equal(SexoDoAnimal.Femea, animal.Sexo);
         Assert.Equal(new DateOnly(2020, 5, 2), animal.DataDeNascimento?.Valor);
+        Assert.Null(animal.DataDoFalecimento);
         Assert.Equal("Caramelo", animal.CorOuPelagem?.Valor);
         Assert.Equal("Resgata com medo de fogos", animal.ObservacaoCadastral?.Valor);
         Assert.Equal(TutorId, animal.TutorResponsavel.TutorId);
@@ -54,6 +55,7 @@ public sealed class AnimalTests
         Assert.Null(animal.Raca);
         Assert.Equal(SexoDoAnimal.NaoInformado, animal.Sexo);
         Assert.Null(animal.DataDeNascimento);
+        Assert.Null(animal.DataDoFalecimento);
         Assert.Null(animal.CorOuPelagem);
         Assert.Null(animal.ObservacaoCadastral);
     }
@@ -194,6 +196,83 @@ public sealed class AnimalTests
     }
 
     [Fact]
+    public void RegistrarFalecimento_AnimalAtivo_MarcaFalecidoEAtualizaTimestamp()
+    {
+        Animal animal = CriarAnimal();
+        DateTimeOffset registradoEm = CriadoEm.AddDays(1);
+        DataDoFalecimento dataDoFalecimento = DataDoFalecimento.Criar(new DateOnly(2026, 7, 19), Hoje);
+
+        animal.RegistrarFalecimento(dataDoFalecimento, registradoEm);
+
+        Assert.False(animal.EstaAtivo);
+        Assert.Equal(SituacaoDoAnimal.Falecido, animal.Situacao);
+        Assert.Equal(new DateOnly(2026, 7, 19), animal.DataDoFalecimento?.Valor);
+        Assert.Equal(registradoEm, animal.AtualizadoEm);
+        Assert.Equal(2, animal.Versao);
+        Assert.Null(animal.InativadoEm);
+    }
+
+    [Fact]
+    public void RegistrarFalecimento_AnimalJaFalecido_RejeitaEPreservaEstado()
+    {
+        Animal animal = CriarAnimal();
+        animal.RegistrarFalecimento(
+            DataDoFalecimento.Criar(new DateOnly(2026, 7, 19), Hoje),
+            CriadoEm.AddDays(1));
+        int versaoAposFalecimento = animal.Versao;
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            animal.RegistrarFalecimento(
+                DataDoFalecimento.Criar(new DateOnly(2026, 7, 20), Hoje),
+                CriadoEm.AddDays(2)));
+
+        Assert.Contains("ja foi registrado", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(new DateOnly(2026, 7, 19), animal.DataDoFalecimento?.Valor);
+        Assert.Equal(versaoAposFalecimento, animal.Versao);
+    }
+
+    [Fact]
+    public void AlterarCadastro_AnimalFalecido_RejeitaEPreservaEstado()
+    {
+        Animal animal = CriarAnimal();
+        animal.RegistrarFalecimento(
+            DataDoFalecimento.Criar(new DateOnly(2026, 7, 19), Hoje),
+            CriadoEm.AddDays(1));
+        int versaoAposFalecimento = animal.Versao;
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            animal.AlterarCadastro(
+                NomeDoAnimal.Criar("Sol"),
+                Especie.Criar("Felina"),
+                raca: null,
+                SexoDoAnimal.Macho,
+                dataDeNascimento: null,
+                corOuPelagem: null,
+                observacaoCadastral: null,
+                CriadoEm.AddDays(2)));
+
+        Assert.Contains("falecido", exception.Message, StringComparison.Ordinal);
+        Assert.Equal("Luna", animal.Nome.Valor);
+        Assert.Equal(SituacaoDoAnimal.Falecido, animal.Situacao);
+        Assert.Equal(versaoAposFalecimento, animal.Versao);
+    }
+
+    [Fact]
+    public void Inativar_AnimalFalecido_Rejeita()
+    {
+        Animal animal = CriarAnimal();
+        animal.RegistrarFalecimento(
+            DataDoFalecimento.Criar(new DateOnly(2026, 7, 19), Hoje),
+            CriadoEm.AddDays(1));
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            animal.Inativar(CriadoEm.AddDays(2)));
+
+        Assert.Contains("falecido", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(SituacaoDoAnimal.Falecido, animal.Situacao);
+    }
+
+    [Fact]
     public void TransferirResponsabilidade_ComNovoTutor_AtualizaTutorTimestampEVersao()
     {
         Animal animal = CriarAnimal();
@@ -229,10 +308,28 @@ public sealed class AnimalTests
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
             animal.TransferirResponsabilidade(TutorResponsavel.Criar(OutroTutorId), CriadoEm.AddHours(3)));
 
-        Assert.Contains("inativo", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("ativo", exception.Message, StringComparison.Ordinal);
         Assert.Equal(TutorId, animal.TutorResponsavel.TutorId);
         Assert.Equal(versaoAposInativacao, animal.Versao);
         Assert.Equal(SituacaoDoAnimal.Inativo, animal.Situacao);
+    }
+
+    [Fact]
+    public void TransferirResponsabilidade_ComAnimalFalecido_RejeitaEPreservaEstado()
+    {
+        Animal animal = CriarAnimal();
+        animal.RegistrarFalecimento(
+            DataDoFalecimento.Criar(new DateOnly(2026, 7, 19), Hoje),
+            CriadoEm.AddHours(1));
+        int versaoAposFalecimento = animal.Versao;
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            animal.TransferirResponsabilidade(TutorResponsavel.Criar(OutroTutorId), CriadoEm.AddHours(3)));
+
+        Assert.Contains("ativo", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(TutorId, animal.TutorResponsavel.TutorId);
+        Assert.Equal(versaoAposFalecimento, animal.Versao);
+        Assert.Equal(SituacaoDoAnimal.Falecido, animal.Situacao);
     }
 
     [Fact]

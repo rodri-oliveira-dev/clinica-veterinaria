@@ -332,6 +332,10 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                     {
                         return AnimalNaoEncontrado();
                     }
+                    catch (AnimalFalecidoException)
+                    {
+                        return AnimalFalecido();
+                    }
                     catch (ConflitoDeConcorrenciaDoAnimalException)
                     {
                         return ConflitoDeConcorrenciaDoAnimal();
@@ -399,6 +403,49 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                     }
                 })
             .WithName("TransferirResponsabilidadeDoAnimal")
+            .Produces<AnimalResponse>()
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        animais.MapPost(
+                "/{animalId:guid}/falecimento",
+                async (
+                    Guid animalId,
+                    RegistrarFalecimentoDoAnimalRequest request,
+                    AnimaisApplicationService animaisService,
+                    CancellationToken cancellationToken) =>
+                {
+                    try
+                    {
+                        AnimalDetalhe animal = await animaisService.RegistrarFalecimentoAsync(
+                            new RegistrarFalecimentoDoAnimalCommand(
+                                animalId,
+                                request.DataDoFalecimento),
+                            cancellationToken);
+
+                        return Results.Ok(AnimalResponse.From(animal));
+                    }
+                    catch (EntradaInvalidaException ex)
+                    {
+                        return EntradaInvalida(ex);
+                    }
+                    catch (AnimalNaoEncontradoException)
+                    {
+                        return AnimalNaoEncontrado();
+                    }
+                    catch (AnimalFalecidoException)
+                    {
+                        return AnimalFalecido();
+                    }
+                    catch (ConflitoDeConcorrenciaDoAnimalException)
+                    {
+                        return ConflitoDeConcorrenciaDoAnimal();
+                    }
+                })
+            .WithName("RegistrarFalecimentoDoAnimal")
             .Produces<AnimalResponse>()
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -476,6 +523,10 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                             detail: "O animal informado ja esta inativo.",
                             type: "urn:petshop:error:resource.conflict");
                     }
+                    catch (AnimalFalecidoException)
+                    {
+                        return AnimalFalecido();
+                    }
                     catch (ConflitoDeConcorrenciaDoAnimalException)
                     {
                         return ConflitoDeConcorrenciaDoAnimal();
@@ -545,8 +596,15 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
     private static IResult AnimalInativo() =>
         Results.Problem(
             statusCode: StatusCodes.Status409Conflict,
-            title: "Animal inativo.",
-            detail: "O animal inativo nao pode ter responsabilidade transferida.",
+            title: "Animal sem situacao ativa.",
+            detail: "A operacao exige um animal ativo.",
+            type: "urn:petshop:error:resource.conflict");
+
+    private static IResult AnimalFalecido() =>
+        Results.Problem(
+            statusCode: StatusCodes.Status409Conflict,
+            title: "Animal falecido.",
+            detail: "A operacao nao e compativel com animal falecido.",
             type: "urn:petshop:error:resource.conflict");
 
     private static IResult ConflitoDeConcorrenciaDoAnimal() =>
@@ -630,6 +688,11 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
         public string? Motivo { get; init; }
     }
 
+    private sealed class RegistrarFalecimentoDoAnimalRequest
+    {
+        public DateOnly? DataDoFalecimento { get; init; }
+    }
+
     private sealed record TutorResponse(
         Guid TutorId,
         string Nome,
@@ -690,6 +753,7 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
         string? Raca,
         string Sexo,
         DateOnly? DataDeNascimento,
+        DateOnly? DataDoFalecimento,
         string? CorOuPelagem,
         string? ObservacaoCadastral,
         string Situacao,
@@ -707,6 +771,7 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                 animal.Raca,
                 animal.Sexo,
                 animal.DataDeNascimento,
+                animal.DataDoFalecimento,
                 animal.CorOuPelagem,
                 animal.ObservacaoCadastral,
                 animal.Situacao,

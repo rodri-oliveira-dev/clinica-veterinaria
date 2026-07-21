@@ -49,6 +49,7 @@ As decisoes completas estao em:
 - `docs/adrs/0004-relacao-tutores-animais-responsabilidade.md`
 - `docs/adrs/0005-ciclo-de-vida-animal.md`
 - `docs/adrs/0006-ownership-relacionamento-tutores-animais.md`
+- `docs/adrs/0007-revisao-bounded-contexts-modulos-aggregates.md`
 
 ## Requisitos
 
@@ -340,6 +341,7 @@ Migrations e execucao local:
 Limitacoes e proximos passos:
 
 - Busca textual e ordenacao por nomes usam Value Objects persistidos por conversao EF Core. A paginacao e o isolamento sao testados, mas a otimizacao para alto volume deve ser revisada antes de carga real, possivelmente com colunas normalizadas, indices funcionais ou projecoes de leitura deliberadas.
+- O checkpoint SDD 26 documenta a revisao estrategica de bounded contexts, context map, matriz de responsabilidades, catalogo de aggregates e roadmap tecnico-funcional em `docs/domain/`.
 - Row-Level Security, suporte administrativo cross-tenant, direitos do titular, retencao, exportacao, auditoria funcional ampla e prontuario veterinario continuam fora desta entrega.
 - Agenda, atendimento, faturamento, notificacoes, catalogo de servicos e profissionais devem entrar como capacidades proprias, sem acessar diretamente tabelas ou entidades de Tutores.
 

@@ -105,26 +105,31 @@ internal sealed class TutoresApplicationService
         Guid tutorId,
         CancellationToken cancellationToken)
     {
-        TutorId tutorIdValidado = ValidarTutorId(tutorId);
-        Tutor tutor = await ObterTutorOuFalharAsync(tutorIdValidado, cancellationToken);
+        return await _repository.ExecutarEmTransacaoAsync(
+            async ct =>
+            {
+                TutorId tutorIdValidado = ValidarTutorId(tutorId);
+                Tutor tutor = await ObterTutorParaAtualizacaoOuFalharAsync(tutorIdValidado, ct);
 
-        if (await _repository.ExisteAnimalAtivoVinculadoAsync(tutorIdValidado, cancellationToken))
-        {
-            throw new TutorComAnimaisAtivosVinculadosException();
-        }
+                if (await _repository.ExisteAnimalAtivoVinculadoAsync(tutorIdValidado, ct))
+                {
+                    throw new TutorComAnimaisAtivosVinculadosException();
+                }
 
-        try
-        {
-            tutor.Inativar(_timeProvider.GetUtcNow());
-        }
-        catch (InvalidOperationException)
-        {
-            throw new TutorJaInativoException();
-        }
+                try
+                {
+                    tutor.Inativar(_timeProvider.GetUtcNow());
+                }
+                catch (InvalidOperationException)
+                {
+                    throw new TutorJaInativoException();
+                }
 
-        await _repository.SalvarAsync(cancellationToken);
+                await _repository.SalvarAsync(ct);
 
-        return MapearDetalhe(tutor);
+                return MapearDetalhe(tutor);
+            },
+            cancellationToken);
     }
 
     private async Task<Tutor> ObterTutorSemTrackingOuFalharAsync(
@@ -143,6 +148,15 @@ internal sealed class TutoresApplicationService
         CancellationToken cancellationToken)
     {
         Tutor? tutor = await _repository.ObterPorIdAsync(tutorId, cancellationToken);
+
+        return tutor ?? throw new TutorNaoEncontradoException();
+    }
+
+    private async Task<Tutor> ObterTutorParaAtualizacaoOuFalharAsync(
+        TutorId tutorId,
+        CancellationToken cancellationToken)
+    {
+        Tutor? tutor = await _repository.ObterPorIdParaAtualizacaoAsync(tutorId, cancellationToken);
 
         return tutor ?? throw new TutorNaoEncontradoException();
     }

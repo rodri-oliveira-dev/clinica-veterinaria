@@ -20,7 +20,8 @@ internal sealed record AtualizarAnimalCommand(
     string? Sexo,
     DateOnly? DataDeNascimento,
     string? CorOuPelagem,
-    string? ObservacaoCadastral);
+    string? ObservacaoCadastral,
+    int Versao);
 
 internal sealed record TransferirResponsabilidadeDoAnimalCommand(
     Guid AnimalId,

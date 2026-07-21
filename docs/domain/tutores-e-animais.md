@@ -336,13 +336,13 @@ Rotas implementadas ate o SDD 23:
 | --- | --- | --- |
 | `POST` | `/animais` | `CadastrarAnimal`; valida tutor responsavel no tenant atual e retorna `201 Created` com `Location`. |
 | `GET` | `/animais/{animalId}` | `ConsultarAnimalPorId`; outro tenant recebe `404`. |
-| `PUT` | `/animais/{animalId}` | `AtualizarAnimal`; `animalId` vem da rota, o tenant vem da claim validada e o tutor responsavel nao e alterado. |
+| `PUT` | `/animais/{animalId}` | `AtualizarAnimal`; `animalId` vem da rota, o tenant vem da claim validada, `versao` deve corresponder a versao atual e o tutor responsavel nao e alterado. |
 | `GET` | `/animais` | `PesquisarAnimais`; suporta pagina limitada, nome, tutor responsavel, especie, situacao e ordenacao estavel. |
 | `POST` | `/animais/{animalId}/transferencias-de-responsabilidade` | `TransferirResponsabilidadeDoAnimal`; exige novo tutor ativo do mesmo tenant e versao atual do animal. |
 | `POST` | `/animais/{animalId}/falecimento` | `RegistrarFalecimentoDoAnimal`; exige `dataDoFalecimento` e marca o animal como falecido. |
 | `POST` | `/animais/{animalId}/inativacao` | `InativarAnimal`; nao realiza hard delete. |
 
-Contratos HTTP sao separados do Domain e nao expoem entidades de dominio ou persistencia. Requests de animais nao aceitam `tenant_id`, `id` nem troca de `tutorResponsavelId` na atualizacao como autoridade. Todos os endpoints exigem JWT Bearer com `tenant_id` valido e role minima `petshop.access`.
+Contratos HTTP sao separados do Domain e nao expoem entidades de dominio ou persistencia. Requests de animais nao aceitam `tenant_id`, `id` nem troca de `tutorResponsavelId` na atualizacao como autoridade. A atualizacao cadastral exige `versao` para detectar edicoes baseadas em leitura desatualizada. Todos os endpoints exigem JWT Bearer com `tenant_id` valido e role minima `petshop.access`.
 
 Cadastro valida o tutor responsavel por consulta filtrada no tenant atual. Tutor inexistente ou pertencente a outro tenant retorna `404`, sem revelar existencia cross-tenant. Tutor inativo retorna conflito porque nao pode assumir novo vinculo operacional. Respostas de animais retornam `tutorResponsavelId`, mas nao duplicam nome, CPF, e-mail, telefone ou outros dados pessoais do tutor.
 

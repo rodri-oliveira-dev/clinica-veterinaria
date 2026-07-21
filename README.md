@@ -272,7 +272,7 @@ Endpoints funcionais de Animais:
 | --- | --- | --- |
 | `POST` | `/animais` | Cadastra animal vinculado a tutor responsavel ativo do tenant atual e retorna `201 Created` com `Location`. |
 | `GET` | `/animais/{animalId}` | Consulta animal visivel no tenant atual. |
-| `PUT` | `/animais/{animalId}` | Atualiza cadastro do animal pela rota, sem trocar tutor responsavel nem aceitar `tenant_id` ou `id` no body como autoridade. |
+| `PUT` | `/animais/{animalId}` | Atualiza cadastro do animal pela rota, exige `versao` atual para concorrencia, sem trocar tutor responsavel nem aceitar `tenant_id` ou `id` no body como autoridade. |
 | `GET` | `/animais` | Pesquisa animais com `pagina`, `tamanhoPagina`, `nome`, `tutorResponsavelId`, `especie`, `situacao`, `ordenarPor` e `direcao`. |
 | `POST` | `/animais/{animalId}/transferencias-de-responsabilidade` | Transfere explicitamente a responsabilidade de animal ativo para outro tutor ativo do tenant atual, usando `novoTutorId`, `versao` e motivo opcional. |
 | `POST` | `/animais/{animalId}/falecimento` | Registra falecimento do animal com `dataDoFalecimento`, sem apagar animal ou vinculos. |
@@ -321,7 +321,7 @@ Requests principais:
 - `PUT /tutores/{tutorId}`: mesmos campos de cadastro; o identificador vem da rota.
 - `GET /tutores`: `pagina`, `tamanhoPagina`, `nome`, `cpf`, `situacao`, `ordenarPor`, `direcao`.
 - `POST /animais`: `tutorResponsavelId`, `nome`, `especie`, `raca`, `sexo`, `dataDeNascimento`, `corOuPelagem`, `observacaoCadastral`.
-- `PUT /animais/{animalId}`: dados cadastrais do animal; nao troca tutor responsavel.
+- `PUT /animais/{animalId}`: dados cadastrais do animal e `versao`; nao troca tutor responsavel.
 - `GET /animais`: `pagina`, `tamanhoPagina`, `nome`, `tutorResponsavelId`, `especie`, `situacao`, `ordenarPor`, `direcao`.
 - `POST /animais/{animalId}/transferencias-de-responsabilidade`: `novoTutorId`, `versao`, `motivo`.
 - `POST /animais/{animalId}/falecimento`: `dataDoFalecimento`.

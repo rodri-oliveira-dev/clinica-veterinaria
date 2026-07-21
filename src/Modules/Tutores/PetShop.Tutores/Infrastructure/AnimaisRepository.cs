@@ -1,3 +1,6 @@
+using System.Data;
+using System.Text;
+
 using Microsoft.EntityFrameworkCore;
 
 using PetShop.Tutores.Application;
@@ -7,10 +10,14 @@ namespace PetShop.Tutores.Infrastructure;
 
 internal sealed class AnimaisRepository : IAnimaisRepository
 {
+    private readonly IContextoTenantAtual _contextoTenantAtual;
     private readonly DbContext _dbContext;
 
-    public AnimaisRepository(DbContext dbContext)
+    public AnimaisRepository(
+        IContextoTenantAtual contextoTenantAtual,
+        DbContext dbContext)
     {
+        _contextoTenantAtual = contextoTenantAtual;
         _dbContext = dbContext;
     }
 
@@ -34,6 +41,17 @@ internal sealed class AnimaisRepository : IAnimaisRepository
         _dbContext.Set<Tutor>()
             .SingleOrDefaultAsync(tutor => tutor.Id == tutorId, cancellationToken);
 
+    public Task<Tutor?> ObterTutorResponsavelPorIdParaAtualizacaoAsync(
+        TutorId tutorId,
+        CancellationToken cancellationToken) =>
+        _dbContext.Set<Tutor>()
+            .FromSqlRaw(
+                "SELECT * FROM tutores WHERE tenant_id = {0} AND id = {1} FOR UPDATE",
+                ObterTenantAtual(),
+                tutorId.Valor)
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(cancellationToken);
+
     public Task AdicionarTransferenciaAsync(
         TransferenciaDeResponsabilidadeDoAnimal transferencia,
         CancellationToken cancellationToken)
@@ -47,52 +65,45 @@ internal sealed class AnimaisRepository : IAnimaisRepository
         FiltrosDePesquisaDeAnimais filtros,
         CancellationToken cancellationToken)
     {
-        Animal[] animaisDoTenant = await _dbContext.Set<Animal>()
+        (string sql, object[] parameters) = CriarSqlPesquisa(filtros, incluirPaginacao: false);
+        int total = await _dbContext.Set<Animal>()
+            .FromSqlRaw(sql, parameters)
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .CountAsync(cancellationToken);
+
+        (string sqlPaginado, object[] parametrosPaginados) = CriarSqlPesquisa(filtros, incluirPaginacao: true);
+        Animal[] animais = await _dbContext.Set<Animal>()
+            .FromSqlRaw(sqlPaginado, parametrosPaginados)
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .ToArrayAsync(cancellationToken);
-        IEnumerable<Animal> query = animaisDoTenant;
-
-        if (!string.IsNullOrWhiteSpace(filtros.Nome))
-        {
-            string nome = filtros.Nome.Trim();
-            query = query.Where(animal =>
-                animal.Nome.Valor.Contains(nome, StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (filtros.TutorResponsavel.HasValue)
-        {
-            query = query.Where(animal =>
-                animal.TutorResponsavel == filtros.TutorResponsavel.Value);
-        }
-
-        if (filtros.Especie.HasValue)
-        {
-            query = query.Where(animal =>
-                string.Equals(
-                    animal.Especie.Valor,
-                    filtros.Especie.Value.Valor,
-                    StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (filtros.Situacao.HasValue)
-        {
-            query = query.Where(animal => animal.Situacao == filtros.Situacao.Value);
-        }
-
-        int total = query.Count();
-
-        query = Ordenar(query, filtros);
-
-        Animal[] animais = query
-            .Skip((filtros.Pagina - 1) * filtros.TamanhoPagina)
-            .Take(filtros.TamanhoPagina)
-            .ToArray();
 
         return new PesquisaDeAnimais(
             animais.Select(MapearResumo).ToArray(),
             filtros.Pagina,
             filtros.TamanhoPagina,
             total);
+    }
+
+    public async Task<TResult> ExecutarEmTransacaoAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operacao,
+        CancellationToken cancellationToken)
+    {
+        Microsoft.EntityFrameworkCore.Storage.IExecutionStrategy strategy = _dbContext.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(
+            async () =>
+            {
+                await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
+                    await _dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
+
+                TResult resultado = await operacao(cancellationToken);
+
+                await transaction.CommitAsync(cancellationToken);
+
+                return resultado;
+            });
     }
 
     public async Task SalvarAsync(CancellationToken cancellationToken)
@@ -107,25 +118,65 @@ internal sealed class AnimaisRepository : IAnimaisRepository
         }
     }
 
-    private static IOrderedEnumerable<Animal> Ordenar(
-        IEnumerable<Animal> query,
-        FiltrosDePesquisaDeAnimais filtros)
+    private (string Sql, object[] Parameters) CriarSqlPesquisa(
+        FiltrosDePesquisaDeAnimais filtros,
+        bool incluirPaginacao)
     {
-        return (filtros.OrdenarPor, filtros.Direcao) switch
+        var sql = new StringBuilder("SELECT * FROM animais WHERE tenant_id = {0}");
+        var parameters = new List<object> { ObterTenantAtual() };
+        int parameterIndex = parameters.Count;
+
+        if (!string.IsNullOrWhiteSpace(filtros.Nome))
         {
-            (OrdenacaoDeAnimais.CriadoEm, DirecaoDaOrdenacao.Desc) => query
-                .OrderByDescending(animal => animal.CriadoEm)
-                .ThenBy(animal => animal.Id.Valor),
-            (OrdenacaoDeAnimais.CriadoEm, _) => query
-                .OrderBy(animal => animal.CriadoEm)
-                .ThenBy(animal => animal.Id.Valor),
-            (OrdenacaoDeAnimais.Nome, DirecaoDaOrdenacao.Desc) => query
-                .OrderByDescending(animal => animal.Nome.Valor, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(animal => animal.Id.Valor),
-            _ => query
-                .OrderBy(animal => animal.Nome.Valor, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(animal => animal.Id.Valor)
-        };
+            sql.Append(" AND nome ILIKE {")
+                .Append(parameterIndex)
+                .Append("} ESCAPE '\\'");
+            parameters.Add(CriarPadraoBusca(filtros.Nome));
+            parameterIndex++;
+        }
+
+        if (filtros.TutorResponsavel.HasValue)
+        {
+            sql.Append(" AND tutor_responsavel_id = {")
+                .Append(parameterIndex)
+                .Append('}');
+            parameters.Add(filtros.TutorResponsavel.Value.TutorId);
+            parameterIndex++;
+        }
+
+        if (filtros.Especie.HasValue)
+        {
+            sql.Append(" AND especie ILIKE {")
+                .Append(parameterIndex)
+                .Append("} ESCAPE '\\'");
+            parameters.Add(filtros.Especie.Value.Valor);
+            parameterIndex++;
+        }
+
+        if (filtros.Situacao.HasValue)
+        {
+            sql.Append(" AND situacao = {")
+                .Append(parameterIndex)
+                .Append('}');
+            parameters.Add((int)filtros.Situacao.Value);
+            parameterIndex++;
+        }
+
+        if (incluirPaginacao)
+        {
+            sql.Append(" ORDER BY ")
+                .Append(filtros.OrdenarPor == OrdenacaoDeAnimais.CriadoEm ? "criado_em" : "lower(nome)")
+                .Append(filtros.Direcao == DirecaoDaOrdenacao.Desc ? " DESC" : " ASC")
+                .Append(", id ASC LIMIT {")
+                .Append(parameterIndex)
+                .Append("} OFFSET {")
+                .Append(parameterIndex + 1)
+                .Append('}');
+            parameters.Add(filtros.TamanhoPagina);
+            parameters.Add((filtros.Pagina - 1) * filtros.TamanhoPagina);
+        }
+
+        return (sql.ToString(), parameters.ToArray());
     }
 
     private static AnimalResumo MapearResumo(Animal animal) =>
@@ -144,4 +195,12 @@ internal sealed class AnimaisRepository : IAnimaisRepository
             SituacaoDoAnimal.Falecido => "falecido",
             _ => throw new ArgumentOutOfRangeException(nameof(situacao), situacao, null)
         };
+
+    private Guid ObterTenantAtual() =>
+        _contextoTenantAtual.TenantId
+        ?? throw new InvalidOperationException(
+            "O tenant autenticado deve estar resolvido antes de consultar animais.");
+
+    private static string CriarPadraoBusca(string valor) =>
+        $"%{valor.Trim().Replace(@"\", @"\\", StringComparison.Ordinal).Replace("%", @"\%", StringComparison.Ordinal).Replace("_", @"\_", StringComparison.Ordinal)}%";
 }

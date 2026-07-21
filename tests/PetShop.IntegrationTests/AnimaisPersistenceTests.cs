@@ -122,7 +122,7 @@ public sealed class AnimaisPersistenceTests : IClassFixture<PostgreSqlFixture>
         var service = new AnimaisApplicationService(
             new ContextoTenantTeste(TenantA),
             new ContextoUsuarioTeste(),
-            new AnimaisRepository(dbContext),
+            new AnimaisRepository(new ContextoTenantTeste(TenantA), dbContext),
             new FixedTimeProvider(CriadoEm));
 
         AnimalDetalhe detalhe = await service.CadastrarAsync(
@@ -158,7 +158,7 @@ public sealed class AnimaisPersistenceTests : IClassFixture<PostgreSqlFixture>
         var service = new AnimaisApplicationService(
             new ContextoTenantTeste(TenantA),
             new ContextoUsuarioTeste(),
-            new AnimaisRepository(dbContext),
+            new AnimaisRepository(new ContextoTenantTeste(TenantA), dbContext),
             new FixedTimeProvider(CriadoEm));
 
         await Assert.ThrowsAsync<TutorResponsavelNaoEncontradoException>(() =>
@@ -189,7 +189,7 @@ public sealed class AnimaisPersistenceTests : IClassFixture<PostgreSqlFixture>
         var service = new AnimaisApplicationService(
             new ContextoTenantTeste(TenantA),
             new ContextoUsuarioTeste(),
-            new AnimaisRepository(dbContext),
+            new AnimaisRepository(new ContextoTenantTeste(TenantA), dbContext),
             new FixedTimeProvider(CriadoEm));
 
         await Assert.ThrowsAsync<TutorResponsavelInativoException>(() =>

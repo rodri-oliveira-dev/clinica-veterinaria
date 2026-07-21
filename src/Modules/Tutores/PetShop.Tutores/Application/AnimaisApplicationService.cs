@@ -29,46 +29,51 @@ internal sealed class AnimaisApplicationService
         CadastrarAnimalCommand command,
         CancellationToken cancellationToken)
     {
-        DadosDoAnimal dados = ValidarDadosDoAnimal(
-            command.Nome,
-            command.Especie,
-            command.Raca,
-            command.Sexo,
-            command.DataDeNascimento,
-            command.CorOuPelagem,
-            command.ObservacaoCadastral);
-        TutorResponsavel tutorResponsavel = ValidarTutorResponsavel(command.TutorResponsavelId);
-        Tutor? tutor = await _repository.ObterTutorResponsavelPorIdAsync(
-            TutorId.Criar(tutorResponsavel.TutorId),
+        return await _repository.ExecutarEmTransacaoAsync(
+            async ct =>
+            {
+                DadosDoAnimal dados = ValidarDadosDoAnimal(
+                    command.Nome,
+                    command.Especie,
+                    command.Raca,
+                    command.Sexo,
+                    command.DataDeNascimento,
+                    command.CorOuPelagem,
+                    command.ObservacaoCadastral);
+                TutorResponsavel tutorResponsavel = ValidarTutorResponsavel(command.TutorResponsavelId);
+                Tutor? tutor = await _repository.ObterTutorResponsavelPorIdParaAtualizacaoAsync(
+                    TutorId.Criar(tutorResponsavel.TutorId),
+                    ct);
+                if (tutor is null)
+                {
+                    throw new TutorResponsavelNaoEncontradoException();
+                }
+
+                if (!tutor.EstaAtivo)
+                {
+                    throw new TutorResponsavelInativoException();
+                }
+
+                DateTimeOffset agora = _timeProvider.GetUtcNow();
+                Animal animal = Animal.Cadastrar(
+                    AnimalId.Novo(),
+                    ObterTenantAtual(),
+                    dados.Nome,
+                    dados.Especie,
+                    dados.Raca,
+                    dados.Sexo,
+                    dados.DataDeNascimento,
+                    dados.CorOuPelagem,
+                    dados.ObservacaoCadastral,
+                    tutorResponsavel,
+                    agora);
+
+                await _repository.AdicionarAsync(animal, ct);
+                await _repository.SalvarAsync(ct);
+
+                return MapearDetalhe(animal);
+            },
             cancellationToken);
-        if (tutor is null)
-        {
-            throw new TutorResponsavelNaoEncontradoException();
-        }
-
-        if (!tutor.EstaAtivo)
-        {
-            throw new TutorResponsavelInativoException();
-        }
-
-        DateTimeOffset agora = _timeProvider.GetUtcNow();
-        Animal animal = Animal.Cadastrar(
-            AnimalId.Novo(),
-            ObterTenantAtual(),
-            dados.Nome,
-            dados.Especie,
-            dados.Raca,
-            dados.Sexo,
-            dados.DataDeNascimento,
-            dados.CorOuPelagem,
-            dados.ObservacaoCadastral,
-            tutorResponsavel,
-            agora);
-
-        await _repository.AdicionarAsync(animal, cancellationToken);
-        await _repository.SalvarAsync(cancellationToken);
-
-        return MapearDetalhe(animal);
     }
 
     public async Task<AnimalDetalhe> ConsultarPorIdAsync(
@@ -94,9 +99,15 @@ internal sealed class AnimaisApplicationService
             command.DataDeNascimento,
             command.CorOuPelagem,
             command.ObservacaoCadastral);
+        ValidarVersao(command.Versao);
         Animal animal = await ObterAnimalOuFalharAsync(
             ValidarAnimalId(command.AnimalId),
             cancellationToken);
+
+        if (animal.Versao != command.Versao)
+        {
+            throw new ConflitoDeConcorrenciaDoAnimalException();
+        }
 
         if (animal.Situacao == SituacaoDoAnimal.Falecido)
         {
@@ -131,59 +142,64 @@ internal sealed class AnimaisApplicationService
         TransferirResponsabilidadeDoAnimalCommand command,
         CancellationToken cancellationToken)
     {
-        AnimalId animalId = ValidarAnimalId(command.AnimalId);
-        TutorId novoTutorId = ValidarTutorId(command.NovoTutorId, "novoTutorId");
-        ValidarVersao(command.Versao);
+        return await _repository.ExecutarEmTransacaoAsync(
+            async ct =>
+            {
+                AnimalId animalId = ValidarAnimalId(command.AnimalId);
+                TutorId novoTutorId = ValidarTutorId(command.NovoTutorId, "novoTutorId");
+                ValidarVersao(command.Versao);
 
-        Animal animal = await ObterAnimalOuFalharAsync(animalId, cancellationToken);
-        if (animal.Versao != command.Versao)
-        {
-            throw new ConflitoDeConcorrenciaDoAnimalException();
-        }
+                Animal animal = await ObterAnimalOuFalharAsync(animalId, ct);
+                if (animal.Versao != command.Versao)
+                {
+                    throw new ConflitoDeConcorrenciaDoAnimalException();
+                }
 
-        if (!animal.EstaAtivo)
-        {
-            throw new AnimalInativoException();
-        }
+                if (!animal.EstaAtivo)
+                {
+                    throw new AnimalInativoException();
+                }
 
-        Tutor? novoTutor = await _repository.ObterTutorResponsavelPorIdAsync(novoTutorId, cancellationToken);
-        if (novoTutor is null)
-        {
-            throw new TutorResponsavelNaoEncontradoException();
-        }
+                Tutor? novoTutor = await _repository.ObterTutorResponsavelPorIdParaAtualizacaoAsync(novoTutorId, ct);
+                if (novoTutor is null)
+                {
+                    throw new TutorResponsavelNaoEncontradoException();
+                }
 
-        if (!novoTutor.EstaAtivo)
-        {
-            throw new TutorResponsavelInativoException();
-        }
+                if (!novoTutor.EstaAtivo)
+                {
+                    throw new TutorResponsavelInativoException();
+                }
 
-        TutorId tutorAnteriorId = animal.TutorResponsavelId;
-        DateTimeOffset agora = _timeProvider.GetUtcNow();
+                TutorId tutorAnteriorId = animal.TutorResponsavelId;
+                DateTimeOffset agora = _timeProvider.GetUtcNow();
 
-        try
-        {
-            animal.TransferirResponsabilidade(TutorResponsavel.Criar(novoTutor.Id.Valor), agora);
-        }
-        catch (InvalidOperationException)
-        {
-            throw new MesmoTutorResponsavelException();
-        }
+                try
+                {
+                    animal.TransferirResponsabilidade(TutorResponsavel.Criar(novoTutor.Id.Valor), agora);
+                }
+                catch (InvalidOperationException)
+                {
+                    throw new MesmoTutorResponsavelException();
+                }
 
-        await _repository.AdicionarTransferenciaAsync(
-            TransferenciaDeResponsabilidadeDoAnimal.Registrar(
-                Guid.NewGuid(),
-                animal.TenantId,
-                animal.Id,
-                tutorAnteriorId,
-                novoTutor.Id,
-                agora,
-                ObterSubjectAtual(),
-                command.Motivo),
+                await _repository.AdicionarTransferenciaAsync(
+                    TransferenciaDeResponsabilidadeDoAnimal.Registrar(
+                        Guid.NewGuid(),
+                        animal.TenantId,
+                        animal.Id,
+                        tutorAnteriorId,
+                        novoTutor.Id,
+                        agora,
+                        ObterSubjectAtual(),
+                        command.Motivo),
+                    ct);
+
+                await _repository.SalvarAsync(ct);
+
+                return MapearDetalhe(animal);
+            },
             cancellationToken);
-
-        await _repository.SalvarAsync(cancellationToken);
-
-        return MapearDetalhe(animal);
     }
 
     public async Task<AnimalDetalhe> RegistrarFalecimentoAsync(

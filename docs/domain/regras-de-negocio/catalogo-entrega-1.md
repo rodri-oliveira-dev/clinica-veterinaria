@@ -624,7 +624,7 @@ Reavaliar se houver fluxo auditado de correcao de falecimento.
 # BR-ANI-008 - Atualizacao cadastral de animal preserva tutor responsavel
 
 ## Regra
-Atualizacao cadastral comum de animal nao altera `AnimalId`, `TenantId`, `TutorResponsavelId` nem `CriadoEm`.
+Atualizacao cadastral comum de animal exige `versao` atual e nao altera `AnimalId`, `TenantId`, `TutorResponsavelId` nem `CriadoEm`.
 
 ## Motivacao
 Separar manutencao cadastral da operacao de transferencia de responsabilidade.
@@ -639,10 +639,10 @@ Animal / vinculo / operacao.
 `PUT /animais/{animalId}`.
 
 ## Resultado esperado
-Dados cadastrais mudam e versao incrementa; tutor responsavel permanece.
+Quando a `versao` informada corresponde a versao atual, dados cadastrais mudam e versao incrementa; tutor responsavel permanece.
 
 ## Violacao
-Troca de responsavel no body nao e aceita como autoridade; transferencia deve usar endpoint explicito.
+Versao desatualizada retorna conflito. Troca de responsavel no body nao e aceita como autoridade; transferencia deve usar endpoint explicito.
 
 ## Excecoes
 Nenhuma conhecida.
@@ -654,10 +654,10 @@ ADR-0004; `docs/domain/tutores-e-animais.md`.
 2026-07-21.
 
 ## Implementacao
-`Animal.AlterarCadastro`; `AtualizarAnimalRequest`; endpoint `AtualizarAnimal`.
+`Animal.AlterarCadastro`; `AtualizarAnimalRequest`; endpoint `AtualizarAnimal`; comparacao explicita de `versao`.
 
 ## Evidencia automatizada
-`AnimalTests.AlterarCadastro_ComDadosValidos_AtualizaCamposETimestamp`; `AnimaisApiTests.AtualizarAnimal_AlteraCadastroSemAceitarTutorOuTenantNoBody`.
+`AnimalTests.AlterarCadastro_ComDadosValidos_AtualizaCamposETimestamp`; `AnimaisApiTests.AtualizarAnimal_AlteraCadastroSemAceitarTutorOuTenantNoBody`; `AnimaisApiTests.AtualizarAnimal_ComVersaoDesatualizada_RetornaConflict`.
 
 ## Status
 Vigente.

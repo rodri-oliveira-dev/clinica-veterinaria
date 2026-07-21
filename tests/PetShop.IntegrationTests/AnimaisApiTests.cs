@@ -194,6 +194,7 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
         using HttpClient client = CriarClienteAutorizado(TenantA);
         Guid tutorId = await CadastrarTutorELerIdAsync(client, "Maria Oliveira", "529.982.247-25");
         Guid animalId = await CadastrarAnimalELerIdAsync(client, tutorId, "Luna", "Canina");
+        int versao = await ConsultarVersaoAnimalAsync(client, animalId);
 
         using var payloadComCamposProibidos = new StringContent(
             $$"""
@@ -219,7 +220,8 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
                 sexo = "macho",
                 dataDeNascimento = "2021-08-03",
                 corOuPelagem = "Cinza",
-                observacaoCadastral = "Aceita colo"
+                observacaoCadastral = "Aceita colo",
+                versao
             },
             TestContext.Current.CancellationToken);
 
@@ -232,6 +234,43 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
         Assert.Equal("Siames", animal.GetProperty("raca").GetString());
         Assert.Equal("macho", animal.GetProperty("sexo").GetString());
         Assert.Equal("2021-08-03", animal.GetProperty("dataDeNascimento").GetString());
+        Assert.Equal(versao + 1, animal.GetProperty("versao").GetInt32());
+    }
+
+    [Fact]
+    public async Task AtualizarAnimal_ComVersaoDesatualizada_RetornaConflict()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient client = CriarClienteAutorizado(TenantA);
+        Guid tutorId = await CadastrarTutorELerIdAsync(client, "Maria Oliveira", "529.982.247-25");
+        Guid animalId = await CadastrarAnimalELerIdAsync(client, tutorId, "Luna", "Canina");
+        int versao = await ConsultarVersaoAnimalAsync(client, animalId);
+
+        using HttpResponseMessage primeiraAtualizacao = await client.PutAsJsonAsync(
+            $"/animais/{animalId:D}",
+            new
+            {
+                nome = "Sol",
+                especie = "Felina",
+                sexo = "femea",
+                versao
+            },
+            TestContext.Current.CancellationToken);
+        await AssertStatusCodeAsync(HttpStatusCode.OK, primeiraAtualizacao);
+
+        using HttpResponseMessage response = await client.PutAsJsonAsync(
+            $"/animais/{animalId:D}",
+            new
+            {
+                nome = "Mel",
+                especie = "Canina",
+                sexo = "femea",
+                versao
+            },
+            TestContext.Current.CancellationToken);
+
+        await AssertStatusCodeAsync(HttpStatusCode.Conflict, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "resource.conflict");
     }
 
     [Fact]
@@ -437,7 +476,8 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
             {
                 nome = "Sol",
                 especie = "Felina",
-                sexo = "femea"
+                sexo = "femea",
+                versao = versao + 1
             },
             TestContext.Current.CancellationToken);
 

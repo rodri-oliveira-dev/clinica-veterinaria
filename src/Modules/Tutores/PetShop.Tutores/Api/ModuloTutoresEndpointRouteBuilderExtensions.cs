@@ -331,7 +331,8 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                                 request.Sexo,
                                 request.DataDeNascimento,
                                 request.CorOuPelagem,
-                                request.ObservacaoCadastral),
+                                request.ObservacaoCadastral,
+                                request.Versao),
                             cancellationToken);
 
                         return Results.Ok(AnimalResponse.From(animal));
@@ -696,6 +697,8 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
         public string? CorOuPelagem { get; init; }
 
         public string? ObservacaoCadastral { get; init; }
+
+        public int Versao { get; init; }
     }
 
     private sealed class TransferirResponsabilidadeDoAnimalRequest

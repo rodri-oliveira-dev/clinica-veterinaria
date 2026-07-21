@@ -8,6 +8,8 @@ internal interface ITutoresRepository
 
     Task<Tutor?> ObterPorIdAsync(TutorId tutorId, CancellationToken cancellationToken);
 
+    Task<Tutor?> ObterPorIdParaAtualizacaoAsync(TutorId tutorId, CancellationToken cancellationToken);
+
     Task<Tutor?> ObterPorIdSemTrackingAsync(TutorId tutorId, CancellationToken cancellationToken);
 
     Task<bool> ExisteDocumentoAsync(
@@ -21,6 +23,10 @@ internal interface ITutoresRepository
 
     Task<PesquisaDeTutores> PesquisarAsync(
         FiltrosDePesquisaDeTutores filtros,
+        CancellationToken cancellationToken);
+
+    Task<TResult> ExecutarEmTransacaoAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operacao,
         CancellationToken cancellationToken);
 
     Task SalvarAsync(CancellationToken cancellationToken);

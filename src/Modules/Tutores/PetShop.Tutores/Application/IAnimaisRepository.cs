@@ -12,12 +12,20 @@ internal interface IAnimaisRepository
 
     Task<Tutor?> ObterTutorResponsavelPorIdAsync(TutorId tutorId, CancellationToken cancellationToken);
 
+    Task<Tutor?> ObterTutorResponsavelPorIdParaAtualizacaoAsync(
+        TutorId tutorId,
+        CancellationToken cancellationToken);
+
     Task AdicionarTransferenciaAsync(
         TransferenciaDeResponsabilidadeDoAnimal transferencia,
         CancellationToken cancellationToken);
 
     Task<PesquisaDeAnimais> PesquisarAsync(
         FiltrosDePesquisaDeAnimais filtros,
+        CancellationToken cancellationToken);
+
+    Task<TResult> ExecutarEmTransacaoAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operacao,
         CancellationToken cancellationToken);
 
     Task SalvarAsync(CancellationToken cancellationToken);

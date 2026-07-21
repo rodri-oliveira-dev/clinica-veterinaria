@@ -144,6 +144,11 @@ internal sealed class Animal : IEquatable<Animal>
         TutorResponsavel novoTutorResponsavel,
         DateTimeOffset transferidoEm)
     {
+        if (!EstaAtivo)
+        {
+            throw new InvalidOperationException("O animal inativo nao pode ter responsabilidade transferida.");
+        }
+
         TutorId novoTutorId = TutorId.Criar(novoTutorResponsavel.TutorId);
 
         if (TutorResponsavelId == novoTutorId)

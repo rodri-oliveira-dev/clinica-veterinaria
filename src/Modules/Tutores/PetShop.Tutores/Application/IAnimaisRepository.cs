@@ -12,10 +12,6 @@ internal interface IAnimaisRepository
 
     Task<Tutor?> ObterTutorResponsavelPorIdAsync(TutorId tutorId, CancellationToken cancellationToken);
 
-    Task<bool> ExisteTutorResponsavelAsync(
-        TutorResponsavel tutorResponsavel,
-        CancellationToken cancellationToken);
-
     Task AdicionarTransferenciaAsync(
         TransferenciaDeResponsabilidadeDoAnimal transferencia,
         CancellationToken cancellationToken);

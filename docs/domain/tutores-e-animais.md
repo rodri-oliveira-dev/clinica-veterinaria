@@ -18,15 +18,19 @@ A separacao futura em modulos ou Bounded Contexts distintos fica adiada ate exis
 
 ## Glossario
 
-| Termo | Significado inicial |
-| --- | --- |
-| Tutor | Pessoa responsavel pelo animal no relacionamento operacional com a clinica. |
-| Animal | Paciente atendido pela clinica. |
-| Vinculo | Relacao entre um tutor e um animal dentro do tenant da clinica. |
-| Responsavel principal | Tutor destacado para comunicacoes ou decisoes operacionais quando houver mais de um tutor vinculado ao animal. Deve ser modelado somente se a regra aparecer na Entrega 1. |
-| Contato | Canal de comunicacao do tutor, como telefone, e-mail ou outro meio aceito pela clinica. |
-| Situacao | Estado operacional de um tutor ou animal, inicialmente ativo ou inativo se houver necessidade do fluxo. |
-| Transferencia de responsabilidade | Mudanca confirmada do tutor responsavel por um animal. Nao e uma alteracao implicita nem silenciosa. |
+| Termo | Status | Significado |
+| --- | --- | --- |
+| Tutor | Fato confirmado | Pessoa cadastrada pela clinica para relacionamento operacional sobre animais dentro do tenant. Nao implica propriedade legal, responsabilidade financeira, consentimento clinico amplo ou autorizacao de retirada. |
+| Animal | Fato confirmado | Paciente animal atendido pela clinica e mantido no cadastro operacional do tenant. |
+| Tutor responsavel | Decisao vigente | Tutor ativo, existente e visivel no tenant atual que representa a responsabilidade operacional vigente pelo animal na fatia atual. |
+| Vinculo com o animal | Decisao vigente | Relacao operacional atual entre um animal e seu tutor responsavel. Hoje e persistida em `animais.tutor_responsavel_id`; nao possui entidade propria nem multiplos papeis simultaneos. |
+| Responsavel | Hipotese | Termo amplo para pessoa que exerce alguma responsabilidade sobre o animal. Deve ser refinado por papel antes de virar contrato ou entidade. |
+| Responsavel principal | Termo reservado | Papel a ser usado somente se houver multiplos responsaveis simultaneos e uma regra exigir destaque operacional. Na fatia atual equivale, na pratica, ao tutor responsavel vigente, mas nao existe como conceito separado no codigo. |
+| Proprietario declarado | Hipotese | Pessoa declarada como proprietaria do animal. Nao e validada nem inferida a partir de `Tutor` nesta etapa. |
+| Responsavel financeiro | Hipotese | Pessoa ou organizacao que assume cobrancas. Nao e inferida a partir de `Tutor` e fica reservada para discovery de Cobranca. |
+| Contato | Fato confirmado | Canal de comunicacao do tutor, como telefone ou e-mail. |
+| Situacao | Fato confirmado | Estado operacional de tutor ou animal, atualmente `ativo` ou `inativo`. |
+| Transferencia de responsabilidade | Decisao vigente | Operacao explicita que altera o tutor responsavel vigente de um animal ativo para outro tutor ativo do mesmo tenant, com concorrencia por `versao` e historico minimo append-only. |
 
 ## Termos aceitos e evitados
 
@@ -122,10 +126,12 @@ O SDD 20 adiciona o caso de uso explicito `TransferirResponsabilidadeDoAnimal`, 
 - O tenant nao pode ser informado pelo cliente como autoridade em body, rota, query string ou header.
 - Dados de outro tenant devem se comportar como inexistentes para operacoes comuns.
 - Um animal nao deve ser vinculado a tutor de outro tenant.
+- Um animal novo deve ser vinculado a tutor responsavel ativo.
 - A transferencia de responsabilidade de um animal exige confirmacao explicita.
+- A transferencia de responsabilidade so ocorre para animal ativo e novo tutor responsavel ativo.
 - Inativar tutor ou animal nao deve apagar historico futuro de atendimento ou faturamento, quando esses contextos existirem.
 - O conceito de tutor nao presume propriedade legal do animal.
-- Responsavel financeiro nao deve ser separado do tutor sem requisito de negocio.
+- Responsavel financeiro nao deve ser inferido a partir do tutor sem requisito de negocio.
 
 ## Modelo inicial de Tutor
 
@@ -264,6 +270,7 @@ Regras:
 - o tenant vem exclusivamente da claim validada;
 - o novo tutor deve existir no tenant atual;
 - dados de outro tenant se comportam como inexistentes;
+- o animal deve estar ativo;
 - o novo tutor deve estar ativo;
 - o novo tutor deve ser diferente do tutor atual;
 - `versao` deve corresponder a versao atual do animal, protegendo contra lost update;
@@ -315,7 +322,7 @@ Rotas implementadas ate o SDD 20:
 
 Contratos HTTP sao separados do Domain e nao expoem entidades de dominio ou persistencia. Requests de animais nao aceitam `tenant_id`, `id` nem troca de `tutorResponsavelId` na atualizacao como autoridade. Todos os endpoints exigem JWT Bearer com `tenant_id` valido e role minima `petshop.access`.
 
-Cadastro valida o tutor responsavel por consulta filtrada no tenant atual. Tutor inexistente ou pertencente a outro tenant retorna `404`, sem revelar existencia cross-tenant. Respostas de animais retornam `tutorResponsavelId`, mas nao duplicam nome, CPF, e-mail, telefone ou outros dados pessoais do tutor.
+Cadastro valida o tutor responsavel por consulta filtrada no tenant atual. Tutor inexistente ou pertencente a outro tenant retorna `404`, sem revelar existencia cross-tenant. Tutor inativo retorna conflito porque nao pode assumir novo vinculo operacional. Respostas de animais retornam `tutorResponsavelId`, mas nao duplicam nome, CPF, e-mail, telefone ou outros dados pessoais do tutor.
 
 Pesquisa:
 
@@ -375,6 +382,7 @@ flowchart LR
 ## Decisoes adiadas
 
 - Se `Responsavel principal` sera necessario em uma entrega futura.
+- Se uma entidade explicita de vinculo sera necessaria quando houver multiplos responsaveis, vigencia, autorizacoes ou historico completo de relacoes.
 - Se surgirao contatos adicionais alem de e-mail e telefone.
 - Se a persistencia futura de novos vinculos continuara no `PetShopDbContext` tecnico ou exigira um `DbContext` especifico do modulo.
 - Se outros modulos precisarao de contratos de leitura ou projecoes locais sobre tutores e animais.

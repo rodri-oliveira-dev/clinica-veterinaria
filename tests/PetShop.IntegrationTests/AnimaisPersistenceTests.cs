@@ -135,6 +135,37 @@ public sealed class AnimaisPersistenceTests : IClassFixture<PostgreSqlFixture>
     }
 
     [Fact]
+    public async Task CadastrarAnimal_ComTutorInativo_RejeitaResponsavelOperacional()
+    {
+        await _postgresql.ResetDatabaseAsync();
+
+        Guid tutorInativoId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa13");
+        await SeedTutorAsync(tutorInativoId, TenantA);
+
+        await using (PetShopDbContext inativacao = _postgresql.CreateDbContext(TenantA))
+        {
+            Tutor tutor = await inativacao.Set<Tutor>()
+                .SingleAsync(tutor => tutor.Id == TutorId.Criar(tutorInativoId), TestContext.Current.CancellationToken);
+
+            tutor.Inativar(CriadoEm.AddHours(1));
+
+            await inativacao.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using PetShopDbContext dbContext = _postgresql.CreateDbContext(TenantA);
+        var service = new AnimaisApplicationService(
+            new ContextoTenantTeste(TenantA),
+            new ContextoUsuarioTeste(),
+            new AnimaisRepository(dbContext),
+            new FixedTimeProvider(CriadoEm));
+
+        await Assert.ThrowsAsync<TutorResponsavelInativoException>(() =>
+            service.CadastrarAsync(
+                CriarCadastrarAnimalCommand(tutorInativoId),
+                TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task TutorInexistente_EhRejeitadoPelaForeignKeyComposta()
     {
         await _postgresql.ResetDatabaseAsync();

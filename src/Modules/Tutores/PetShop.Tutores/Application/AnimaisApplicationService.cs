@@ -38,10 +38,17 @@ internal sealed class AnimaisApplicationService
             command.CorOuPelagem,
             command.ObservacaoCadastral);
         TutorResponsavel tutorResponsavel = ValidarTutorResponsavel(command.TutorResponsavelId);
-
-        if (!await _repository.ExisteTutorResponsavelAsync(tutorResponsavel, cancellationToken))
+        Tutor? tutor = await _repository.ObterTutorResponsavelPorIdAsync(
+            TutorId.Criar(tutorResponsavel.TutorId),
+            cancellationToken);
+        if (tutor is null)
         {
             throw new TutorResponsavelNaoEncontradoException();
+        }
+
+        if (!tutor.EstaAtivo)
+        {
+            throw new TutorResponsavelInativoException();
         }
 
         DateTimeOffset agora = _timeProvider.GetUtcNow();
@@ -127,6 +134,11 @@ internal sealed class AnimaisApplicationService
         if (animal.Versao != command.Versao)
         {
             throw new ConflitoDeConcorrenciaDoAnimalException();
+        }
+
+        if (!animal.EstaAtivo)
+        {
+            throw new AnimalInativoException();
         }
 
         Tutor? novoTutor = await _repository.ObterTutorResponsavelPorIdAsync(novoTutorId, cancellationToken);

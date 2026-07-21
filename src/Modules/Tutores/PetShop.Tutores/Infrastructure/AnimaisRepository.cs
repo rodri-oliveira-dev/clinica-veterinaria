@@ -34,12 +34,6 @@ internal sealed class AnimaisRepository : IAnimaisRepository
         _dbContext.Set<Tutor>()
             .SingleOrDefaultAsync(tutor => tutor.Id == tutorId, cancellationToken);
 
-    public Task<bool> ExisteTutorResponsavelAsync(
-        TutorResponsavel tutorResponsavel,
-        CancellationToken cancellationToken) =>
-        _dbContext.Set<Tutor>()
-            .AnyAsync(tutor => tutor.Id == TutorId.Criar(tutorResponsavel.TutorId), cancellationToken);
-
     public Task AdicionarTransferenciaAsync(
         TransferenciaDeResponsabilidadeDoAnimal transferencia,
         CancellationToken cancellationToken)

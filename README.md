@@ -46,6 +46,7 @@ As decisoes completas estao em:
 - `docs/adrs/0001-multitenancy-claim-e-isolamento-por-linha.md`
 - `docs/adrs/0002-library-propagacao-observabilidade.md`
 - `docs/adrs/0003-fronteira-cadastro-tutores-animais.md`
+- `docs/adrs/0004-relacao-tutores-animais-responsabilidade.md`
 
 ## Requisitos
 
@@ -176,7 +177,7 @@ Estrategia multitenant da persistencia de animais:
 - O tenant continua vindo exclusivamente do `ITenantContext` resolvido da claim `tenant_id` autenticada.
 - O `PetShopDbContext` aplica query filter parametrizado por contexto para `Animal`; sem tenant resolvido, consultas comuns nao retornam animais.
 - `SaveChanges` bloqueia inclusao, alteracao ou exclusao de animais quando nao houver tenant resolvido ou quando o tenant da entidade divergir do tenant autenticado.
-- A Application valida o tutor responsavel por consulta filtrada no tenant atual; tutor de outro tenant se comporta como inexistente.
+- A Application valida o tutor responsavel por consulta filtrada no tenant atual; tutor de outro tenant se comporta como inexistente, e tutor inativo nao pode assumir novo vinculo operacional.
 - A FK composta no banco protege o mesmo limite caso uma escrita tente associar animal a tutor inexistente ou de outro tenant.
 - A transferencia de responsabilidade usa endpoint explicito, exige `versao` do animal para proteger contra lost update e grava historico append-only limitado ao tenant atual.
 
@@ -265,14 +266,14 @@ Endpoints funcionais de Animais:
 
 | Metodo | Rota | Uso |
 | --- | --- | --- |
-| `POST` | `/animais` | Cadastra animal vinculado a tutor responsavel do tenant atual e retorna `201 Created` com `Location`. |
+| `POST` | `/animais` | Cadastra animal vinculado a tutor responsavel ativo do tenant atual e retorna `201 Created` com `Location`. |
 | `GET` | `/animais/{animalId}` | Consulta animal visivel no tenant atual. |
 | `PUT` | `/animais/{animalId}` | Atualiza cadastro do animal pela rota, sem trocar tutor responsavel nem aceitar `tenant_id` ou `id` no body como autoridade. |
 | `GET` | `/animais` | Pesquisa animais com `pagina`, `tamanhoPagina`, `nome`, `tutorResponsavelId`, `especie`, `situacao`, `ordenarPor` e `direcao`. |
-| `POST` | `/animais/{animalId}/transferencias-de-responsabilidade` | Transfere explicitamente a responsabilidade do animal para outro tutor ativo do tenant atual, usando `novoTutorId`, `versao` e motivo opcional. |
+| `POST` | `/animais/{animalId}/transferencias-de-responsabilidade` | Transfere explicitamente a responsabilidade de animal ativo para outro tutor ativo do tenant atual, usando `novoTutorId`, `versao` e motivo opcional. |
 | `POST` | `/animais/{animalId}/inativacao` | Inativa animal sem hard delete. |
 
-Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Tutor responsavel inexistente ou pertencente a outro tenant retorna `404`. Dados de outro tenant retornam `404` nos fluxos por identificador. As respostas de animais retornam `tutorResponsavelId` e `versao`, sem duplicar dados pessoais do tutor.
+Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Tutor responsavel inexistente ou pertencente a outro tenant retorna `404`; tutor responsavel inativo retorna `409`. Dados de outro tenant retornam `404` nos fluxos por identificador. As respostas de animais retornam `tutorResponsavelId` e `versao`, sem duplicar dados pessoais do tutor.
 
 ## Entrega 1 - Cadastro de Tutores e Animais
 
@@ -282,8 +283,8 @@ Escopo funcional validado:
 
 - cadastrar, consultar, atualizar, pesquisar e inativar tutores;
 - cadastrar, consultar, atualizar, pesquisar e inativar animais;
-- vincular animal a tutor responsavel do mesmo tenant;
-- transferir explicitamente a responsabilidade do animal para outro tutor ativo do mesmo tenant;
+- vincular animal a tutor responsavel ativo do mesmo tenant;
+- transferir explicitamente a responsabilidade de animal ativo para outro tutor ativo do mesmo tenant;
 - tratar dados de outro tenant como inexistentes nos fluxos comuns;
 - retornar Problem Details padronizado, com `correlationId`, para erros de entrada, autenticacao, autorizacao, recurso inexistente e conflitos.
 

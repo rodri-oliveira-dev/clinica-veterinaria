@@ -148,6 +148,29 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
     }
 
     [Fact]
+    public async Task CadastrarAnimal_ComTutorInativo_RetornaConflict()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient client = CriarClienteAutorizado(TenantA);
+        Guid tutorInativoId = await CadastrarTutorELerIdAsync(client, "Bruna Lima", "123.456.789-09");
+
+        using HttpResponseMessage inativacao = await client.PostAsync(
+            $"/tutores/{tutorInativoId:D}/inativacao",
+            content: null,
+            TestContext.Current.CancellationToken);
+        await AssertStatusCodeAsync(HttpStatusCode.OK, inativacao);
+
+        using HttpResponseMessage response = await CadastrarAnimalAsync(
+            client,
+            tutorInativoId,
+            "Luna",
+            "Canina");
+
+        await AssertStatusCodeAsync(HttpStatusCode.Conflict, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "resource.conflict");
+    }
+
+    [Fact]
     public async Task ConsultarAnimal_DeOutroTenant_RetornaNotFound()
     {
         await _postgresql.ResetDatabaseAsync();
@@ -349,6 +372,41 @@ public sealed class AnimaisApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
 
         await AssertStatusCodeAsync(HttpStatusCode.Conflict, response);
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "resource.conflict");
+    }
+
+    [Fact]
+    public async Task TransferirResponsabilidade_ComAnimalInativo_RetornaConflictEPreservaTutor()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient client = CriarClienteAutorizado(TenantA);
+        Guid tutorAnteriorId = await CadastrarTutorELerIdAsync(client, "Maria Oliveira", "529.982.247-25");
+        Guid tutorNovoId = await CadastrarTutorELerIdAsync(client, "Bruna Lima", "123.456.789-09");
+        Guid animalId = await CadastrarAnimalELerIdAsync(client, tutorAnteriorId, "Luna", "Canina");
+        int versao = await ConsultarVersaoAnimalAsync(client, animalId);
+
+        using HttpResponseMessage inativacao = await client.PostAsync(
+            $"/animais/{animalId:D}/inativacao",
+            content: null,
+            TestContext.Current.CancellationToken);
+        await AssertStatusCodeAsync(HttpStatusCode.OK, inativacao);
+        int versaoAposInativacao = versao + 1;
+
+        using HttpResponseMessage response = await TransferirResponsabilidadeAsync(
+            client,
+            animalId,
+            tutorNovoId,
+            versaoAposInativacao);
+
+        await AssertStatusCodeAsync(HttpStatusCode.Conflict, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "resource.conflict");
+
+        using HttpResponseMessage consulta = await client.GetAsync(
+            $"/animais/{animalId:D}",
+            TestContext.Current.CancellationToken);
+        await AssertStatusCodeAsync(HttpStatusCode.OK, consulta);
+        JsonElement animal = await ReadJsonAsync(consulta);
+        Assert.Equal(tutorAnteriorId, animal.GetProperty("tutorResponsavelId").GetGuid());
+        Assert.Equal(versaoAposInativacao, animal.GetProperty("versao").GetInt32());
     }
 
     [Fact]

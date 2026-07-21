@@ -220,6 +220,22 @@ public sealed class AnimalTests
     }
 
     [Fact]
+    public void TransferirResponsabilidade_ComAnimalInativo_RejeitaEPreservaEstado()
+    {
+        Animal animal = CriarAnimal();
+        animal.Inativar(CriadoEm.AddHours(1));
+        int versaoAposInativacao = animal.Versao;
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            animal.TransferirResponsabilidade(TutorResponsavel.Criar(OutroTutorId), CriadoEm.AddHours(3)));
+
+        Assert.Contains("inativo", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(TutorId, animal.TutorResponsavel.TutorId);
+        Assert.Equal(versaoAposInativacao, animal.Versao);
+        Assert.Equal(SituacaoDoAnimal.Inativo, animal.Situacao);
+    }
+
+    [Fact]
     public void Equals_ComMesmoIdETenant_ConsideraMesmoAnimal()
     {
         Animal animal = CriarAnimal();

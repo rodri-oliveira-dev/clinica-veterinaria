@@ -258,13 +258,18 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                     {
                         return TutorResponsavelNaoEncontrado();
                     }
+                    catch (TutorResponsavelInativoException)
+                    {
+                        return TutorResponsavelInativo();
+                    }
                 })
             .WithName("CadastrarAnimal")
             .Produces<AnimalResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         animais.MapGet(
                 "/{animalId:guid}",
@@ -375,6 +380,10 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                     catch (TutorResponsavelInativoException)
                     {
                         return TutorResponsavelInativo();
+                    }
+                    catch (AnimalInativoException)
+                    {
+                        return AnimalInativo();
                     }
                     catch (MesmoTutorResponsavelException)
                     {
@@ -531,6 +540,13 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
             statusCode: StatusCodes.Status409Conflict,
             title: "Tutor responsavel inalterado.",
             detail: "O novo tutor responsavel deve ser diferente do tutor atual.",
+            type: "urn:petshop:error:resource.conflict");
+
+    private static IResult AnimalInativo() =>
+        Results.Problem(
+            statusCode: StatusCodes.Status409Conflict,
+            title: "Animal inativo.",
+            detail: "O animal inativo nao pode ter responsabilidade transferida.",
             type: "urn:petshop:error:resource.conflict");
 
     private static IResult ConflitoDeConcorrenciaDoAnimal() =>

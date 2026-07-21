@@ -77,6 +77,7 @@ public sealed class OpenApiContractTests : IDisposable
         AssertSecuredModuleOperation(atualizarAnimal);
         AssertSecuredModuleOperation(transferirResponsabilidade);
         AssertSecuredModuleOperation(inativarAnimal);
+        Assert.True(cadastrarAnimal.GetProperty("responses").TryGetProperty("409", out _));
         Assert.Contains(
             consultarTutor.GetProperty("parameters").EnumerateArray(),
             parameter =>

@@ -105,7 +105,13 @@ internal sealed class TutoresApplicationService
         Guid tutorId,
         CancellationToken cancellationToken)
     {
-        Tutor tutor = await ObterTutorOuFalharAsync(ValidarTutorId(tutorId), cancellationToken);
+        TutorId tutorIdValidado = ValidarTutorId(tutorId);
+        Tutor tutor = await ObterTutorOuFalharAsync(tutorIdValidado, cancellationToken);
+
+        if (await _repository.ExisteAnimalAtivoVinculadoAsync(tutorIdValidado, cancellationToken))
+        {
+            throw new TutorComAnimaisAtivosVinculadosException();
+        }
 
         try
         {

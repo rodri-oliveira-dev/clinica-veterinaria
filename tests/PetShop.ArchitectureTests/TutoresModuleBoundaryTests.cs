@@ -67,6 +67,24 @@ public sealed class TutoresModuleBoundaryTests
     }
 
     [Fact]
+    public void TutoresApplication_DoesNotExposeIQueryableContracts()
+    {
+        Assembly tutores = typeof(ModuloTutoresServiceCollectionExtensions).Assembly;
+
+        string[] violations = tutores
+            .GetTypes()
+            .Where(type => IsInNamespace(type, "PetShop.Tutores.Application"))
+            .SelectMany(type => type.GetMethods(TypeMemberFlags)
+                .SelectMany(method => MethodContractTypes(method)
+                    .Where(IsQueryableType)
+                    .Select(contractType => $"{type.FullName}.{method.Name} -> {contractType.FullName}")))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void OtherProductionAssemblies_DoNotAccessTutoresInternals()
     {
         Assembly tutores = typeof(ModuloTutoresServiceCollectionExtensions).Assembly;
@@ -183,6 +201,31 @@ public sealed class TutoresModuleBoundaryTests
         }
 
         return referencedTypes;
+    }
+
+    private static IEnumerable<Type> MethodContractTypes(MethodInfo method)
+    {
+        yield return method.ReturnType;
+
+        foreach (ParameterInfo parameter in method.GetParameters())
+        {
+            yield return parameter.ParameterType;
+        }
+    }
+
+    private static bool IsQueryableType(Type type)
+    {
+        if (type == typeof(IQueryable))
+        {
+            return true;
+        }
+
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IQueryable<>))
+        {
+            return true;
+        }
+
+        return type.GetInterfaces().Any(IsQueryableType);
     }
 
     private static void AddType(Type? type, ISet<Type> referencedTypes)

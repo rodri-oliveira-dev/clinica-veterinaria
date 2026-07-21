@@ -278,6 +278,31 @@ public sealed class TutoresApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
     }
 
     [Fact]
+    public async Task InativarTutor_ComAnimalAtivoVinculado_RetornaConflictEPreservaTutor()
+    {
+        await _postgresql.ResetDatabaseAsync();
+        using HttpClient client = CriarClienteAutorizado(TenantA);
+        Guid tutorId = await CadastrarTutorELerIdAsync(client, "Maria Oliveira", "529.982.247-25");
+        _ = await CadastrarAnimalELerIdAsync(client, tutorId, "Luna", "Canina");
+
+        using HttpResponseMessage response = await client.PostAsync(
+            $"/tutores/{tutorId:D}/inativacao",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        await AssertStatusCodeAsync(HttpStatusCode.Conflict, response);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "resource.conflict");
+
+        using HttpResponseMessage consulta = await client.GetAsync(
+            $"/tutores/{tutorId:D}",
+            TestContext.Current.CancellationToken);
+
+        await AssertStatusCodeAsync(HttpStatusCode.OK, consulta);
+        JsonElement tutor = await ReadJsonAsync(consulta);
+        Assert.Equal("ativo", tutor.GetProperty("situacao").GetString());
+    }
+
+    [Fact]
     public async Task Tutores_ExigeAutenticacaoRoleETenantValido()
     {
         await _postgresql.ResetDatabaseAsync();
@@ -348,6 +373,35 @@ public sealed class TutoresApiTests : IClassFixture<PostgreSqlFixture>, IDisposa
         JsonElement tutor = await ReadJsonAsync(response);
 
         return tutor.GetProperty("tutorId").GetGuid();
+    }
+
+    private static async Task<HttpResponseMessage> CadastrarAnimalAsync(
+        HttpClient client,
+        Guid tutorResponsavelId,
+        string nome,
+        string especie) =>
+        await client.PostAsJsonAsync(
+            "/animais",
+            new
+            {
+                tutorResponsavelId,
+                nome,
+                especie,
+                sexo = "naoInformado"
+            },
+            TestContext.Current.CancellationToken);
+
+    private static async Task<Guid> CadastrarAnimalELerIdAsync(
+        HttpClient client,
+        Guid tutorResponsavelId,
+        string nome,
+        string especie)
+    {
+        using HttpResponseMessage response = await CadastrarAnimalAsync(client, tutorResponsavelId, nome, especie);
+        await AssertStatusCodeAsync(HttpStatusCode.Created, response);
+        JsonElement animal = await ReadJsonAsync(response);
+
+        return animal.GetProperty("animalId").GetGuid();
     }
 
     private static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)

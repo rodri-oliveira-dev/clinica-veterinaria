@@ -46,6 +46,14 @@ internal sealed class TutoresRepository : ITutoresRepository
         return query.AnyAsync(cancellationToken);
     }
 
+    public Task<bool> ExisteAnimalAtivoVinculadoAsync(
+        TutorId tutorId,
+        CancellationToken cancellationToken) =>
+        _dbContext.Set<Animal>()
+            .AnyAsync(
+                animal => animal.TutorResponsavelId == tutorId && animal.Situacao == SituacaoDoAnimal.Ativo,
+                cancellationToken);
+
     public async Task<PesquisaDeTutores> PesquisarAsync(
         FiltrosDePesquisaDeTutores filtros,
         CancellationToken cancellationToken)

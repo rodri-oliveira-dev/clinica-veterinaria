@@ -53,6 +53,39 @@ public sealed class AnimaisPersistenceTests : IClassFixture<PostgreSqlFixture>
     }
 
     [Fact]
+    public async Task MesmoTutorPodeSerResponsavelPorMultiplosAnimaisNoTenant()
+    {
+        await _postgresql.ResetDatabaseAsync();
+
+        Guid tutorId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa21");
+
+        await SeedTutorAsync(tutorId, TenantA);
+
+        await using (PetShopDbContext dbContext = _postgresql.CreateDbContext(TenantA))
+        {
+            dbContext.Set<Animal>().Add(CriarAnimal(
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb21"),
+                TenantA,
+                tutorId));
+            dbContext.Set<Animal>().Add(CriarAnimal(
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb22"),
+                TenantA,
+                tutorId));
+
+            await dbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using PetShopDbContext leitura = _postgresql.CreateDbContext(TenantA);
+
+        int animaisDoTutor = await leitura.Set<Animal>()
+            .CountAsync(
+                animal => animal.TutorResponsavelId == TutorId.Criar(tutorId),
+                TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, animaisDoTutor);
+    }
+
+    [Fact]
     public async Task LeituraEmOutroTenant_TrataAnimalComoInexistente()
     {
         await _postgresql.ResetDatabaseAsync();

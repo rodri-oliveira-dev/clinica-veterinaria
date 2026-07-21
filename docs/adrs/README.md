@@ -13,6 +13,7 @@ ADRs são históricas. Depois que uma decisão for aceita, não reescreva o arqu
 | [ADR-0003](0003-fronteira-cadastro-tutores-animais.md) | Aceita | Manter tutores e animais no mesmo Bounded Context inicial |
 | [ADR-0004](0004-relacao-tutores-animais-responsabilidade.md) | Aceita | Manter um tutor responsavel operacional vigente por animal, sem pessoa generica ou multiplos responsaveis nesta etapa |
 | [ADR-0005](0005-ciclo-de-vida-animal.md) | Aceita | Usar situacao operacional explicita minima para o ciclo de vida do Animal |
+| [ADR-0006](0006-ownership-relacionamento-tutores-animais.md) | Aceita | Manter ownership unico do relacionamento Tutor-Animal e bloquear inativacao de tutor com animal ativo vinculado |
 
 ## Convenção
 

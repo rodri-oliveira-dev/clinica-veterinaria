@@ -15,6 +15,10 @@ internal interface ITutoresRepository
         TutorId? excetoTutorId,
         CancellationToken cancellationToken);
 
+    Task<bool> ExisteAnimalAtivoVinculadoAsync(
+        TutorId tutorId,
+        CancellationToken cancellationToken);
+
     Task<PesquisaDeTutores> PesquisarAsync(
         FiltrosDePesquisaDeTutores filtros,
         CancellationToken cancellationToken);

@@ -129,6 +129,8 @@ O SDD 18 persiste `Animal` em PostgreSQL no mesmo modulo e cria o vinculo inicia
 
 O SDD 20 adiciona o caso de uso explicito `TransferirResponsabilidadeDoAnimal`, preservando o mesmo Bounded Context e o mesmo ownership de dados.
 
+O SDD 24 revisa relacionamentos, cardinalidades e ownership entre Tutores e Animais. A decisao resultante fica registrada na ADR-0006 e mantem o vinculo vigente owned pelo modulo Cadastro de Tutores e Animais.
+
 ## Invariantes conhecidas
 
 - Tutor, animal e vinculo sempre pertencem a exatamente um tenant autenticado.
@@ -136,6 +138,7 @@ O SDD 20 adiciona o caso de uso explicito `TransferirResponsabilidadeDoAnimal`, 
 - Dados de outro tenant devem se comportar como inexistentes para operacoes comuns.
 - Um animal nao deve ser vinculado a tutor de outro tenant.
 - Um animal novo deve ser vinculado a tutor responsavel ativo.
+- Um tutor com animal ativo vinculado nao pode ser inativado antes de transferencia ou inativacao do animal.
 - A transferencia de responsabilidade de um animal exige confirmacao explicita.
 - A transferencia de responsabilidade so ocorre para animal ativo e novo tutor responsavel ativo.
 - Falecimento de animal e uma transicao explicita, exige data de falecimento e nao equivale a inativacao cadastral.
@@ -216,6 +219,7 @@ Decisoes:
 - Consultas comuns usam query filter por tenant atual.
 - Escritas usam guarda em `SaveChanges` para exigir tenant resolvido e impedir alteracao de tutor pertencente a outro tenant.
 - Sem tenant resolvido, dados de tutores nao devem ser materializados por consultas comuns.
+- A inativacao de tutor e rejeitada quando existir animal ativo vinculado no tenant atual, preservando a aptidao do `TutorResponsavel` vigente.
 
 Trade-off registrado:
 
@@ -377,6 +381,25 @@ Fluxos de vinculo:
 - transferir responsabilidade do animal somente apos confirmacao explicita.
 
 Todos os fluxos persistentes da Entrega 1 devem validar isolamento com pelo menos dois tenants.
+
+## Relacionamento Tutor-Animal
+
+Cardinalidade vigente:
+
+- um Tutor pode ser responsavel por zero, um ou muitos Animais no mesmo tenant;
+- um Animal possui exatamente um Tutor responsavel vigente em todos os estados atuais;
+- nao existe lista de responsaveis, responsavel financeiro, proprietario declarado ou responsavel principal separado;
+- o vinculo duplicado nao existe como entidade de colecao, e transferencia para o mesmo tutor e rejeitada;
+- Animal ativo exige tutor responsavel ativo; por isso, a inativacao de tutor com animal ativo vinculado retorna conflito.
+
+Ownership:
+
+- `PetShop.Tutores` e owner de tutor, animal, vinculo vigente e historico de transferencia;
+- o vinculo vigente pertence ao aggregate `Animal`;
+- a existencia e aptidao do tutor sao validadas na Application do modulo owner;
+- outros modulos nao consultam tabelas, repositories, entidades EF Core ou `DbContext` do modulo.
+
+Contratos futuros devem ser especificos por caso de uso. Agenda pode precisar validar animal ativo e responsavel operacional; Atendimento pode precisar registrar quem acompanhou ou autorizou; Cobranca deve separar tutor de responsavel financeiro; Prontuario deve gravar snapshot historico. Nenhum desses contratos foi implementado sem consumidor real no SDD 24.
 
 ## Diagrama
 

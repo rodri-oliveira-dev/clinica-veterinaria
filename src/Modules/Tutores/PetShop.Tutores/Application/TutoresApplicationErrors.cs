@@ -34,3 +34,11 @@ internal sealed class TutorJaInativoException : Exception
     {
     }
 }
+
+internal sealed class TutorComAnimaisAtivosVinculadosException : Exception
+{
+    public TutorComAnimaisAtivosVinculadosException()
+        : base("O tutor possui animais ativos vinculados.")
+    {
+    }
+}

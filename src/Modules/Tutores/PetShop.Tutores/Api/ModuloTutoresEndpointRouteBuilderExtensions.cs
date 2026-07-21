@@ -203,6 +203,14 @@ public static class ModuloTutoresEndpointRouteBuilderExtensions
                             detail: "O tutor informado ja esta inativo.",
                             type: "urn:petshop:error:resource.conflict");
                     }
+                    catch (TutorComAnimaisAtivosVinculadosException)
+                    {
+                        return Results.Problem(
+                            statusCode: StatusCodes.Status409Conflict,
+                            title: "Tutor possui animais ativos vinculados.",
+                            detail: "Transfira ou inative os animais ativos vinculados antes de inativar o tutor.",
+                            type: "urn:petshop:error:resource.conflict");
+                    }
                 })
             .WithName("InativarTutor")
             .Produces<TutorResponse>()

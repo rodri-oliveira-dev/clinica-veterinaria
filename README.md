@@ -261,7 +261,7 @@ Endpoints funcionais de Tutores:
 | `GET` | `/tutores` | Pesquisa tutores com `pagina`, `tamanhoPagina`, `nome`, `cpf`, `situacao`, `ordenarPor` e `direcao`. |
 | `POST` | `/tutores/{tutorId}/inativacao` | Inativa tutor sem hard delete. |
 
-Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Dados de outro tenant retornam `404` nos fluxos por identificador. CPF e aceito como filtro normalizado, mas as respostas expõem apenas `cpfMascarado`.
+Todos exigem JWT Bearer com `tenant_id` valido e a role minima `petshop.access`. Dados de outro tenant retornam `404` nos fluxos por identificador. CPF e aceito como filtro normalizado, mas as respostas expõem apenas `cpfMascarado`. Inativar tutor com animal ativo vinculado retorna `409`; transfira a responsabilidade ou inative o animal antes de inativar o tutor.
 
 Endpoints funcionais de Animais:
 
@@ -288,6 +288,7 @@ Escopo funcional validado:
 - registrar falecimento de animal com data obrigatoria;
 - vincular animal a tutor responsavel ativo do mesmo tenant;
 - transferir explicitamente a responsabilidade de animal ativo para outro tutor ativo do mesmo tenant;
+- impedir a inativacao de tutor ainda responsavel por animal ativo;
 - tratar dados de outro tenant como inexistentes nos fluxos comuns;
 - retornar Problem Details padronizado, com `correlationId`, para erros de entrada, autenticacao, autorizacao, recurso inexistente e conflitos.
 

@@ -1,0 +1,17 @@
+## Positivos
+
+* O requisito central de resiliência foi comprovado por testes E2E que derrubam o Consolidado e o RabbitMQ sem interromper o registro de lançamentos.
+* A documentação apresenta decisões, trade-offs, SLOs, capacidade e procedimentos operacionais com profundidade acima da média para um desafio técnico.
+* A implementação combina corretamente Outbox, idempotência do consumidor, autorização por recurso e testes com infraestrutura real via Testcontainers.
+
+## Negativos
+
+* A autenticação é apenas demonstrativa, pois o endpoint anônimo de emissão permite solicitar um token informando qualquer identificador de comerciante.
+* Não há IaC produtiva nem implementação completa da observabilidade, embora alertas, métricas e procedimentos estejam bem documentados.
+* A pipeline ainda não possui execução em pull requests, cobertura mínima, SAST, auditoria de dependências, secret scanning ou scan de imagens.
+
+## Parecer final
+
+* **Recomendação: deve seguir para entrevista técnica.**
+* O projeto demonstra conhecimento consistente de arquitetura distribuída, resiliência, modelagem financeira, .NET e operação de sistemas.
+* Na entrevista, deve-se validar principalmente o domínio sobre Outbox, consistência eventual, concorrência, segurança e decisões de produção para confirmar a autoria e a profundidade do conhecimento.
